@@ -69,7 +69,7 @@ final_selection:
 
 
 wandb: # Options for WandB logging.
-  enable_logging: false # Activate logging.
+  enable_logging: true # Activate logging.
   wandb_init_args: # WandB init arguments.
     project: intermediate-MIA
     entity: model-inversion

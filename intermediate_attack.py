@@ -174,6 +174,8 @@ def main():
     imgs_optimized_unselected = torch.cat(imgs_optimized, dim=0)
     torch.cuda.empty_cache()
     del discriminator
+    
+    print(imgs_optimized_unselected.shape)
 
     # Log optimized vectors: 记录优化得到的隐向量
     if config.logging:
@@ -207,6 +209,8 @@ def main():
     else:
         final_targets, final_w, final_imgs = targets, w_optimized_unselected, imgs_optimized_unselected
     del target_model
+    
+    print(final_imgs.shape)
 
     # Log selected vectors: 记录选择结果
     if config.logging:

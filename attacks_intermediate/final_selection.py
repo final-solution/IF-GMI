@@ -55,7 +55,8 @@ def perform_final_selection(w,
     for step, target in enumerate(target_values):
         mask = torch.where(targets == target, True, False).cpu()
         w_masked = w[mask]
-        candidates = create_image(images[mask],
+        images_masked = images[mask]
+        candidates = create_image(images_masked,
                                   crop_size=config.attack_center_crop,
                                   resize=config.attack_resize).cpu()
         targets_masked = targets[mask].cpu()
@@ -72,7 +73,7 @@ def perform_final_selection(w,
         selected_indices = indices[:samples_per_target]
         final_targets.append(targets_masked[selected_indices].cpu())
         final_w.append(w_masked[selected_indices].cpu())
-        final_imgs.append(candidates[selected_indices].cpu())
+        final_imgs.append(images_masked[selected_indices].cpu())
 
         if rtpt:
             rtpt.step(

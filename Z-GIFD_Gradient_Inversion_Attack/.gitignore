@@ -1,3 +1,8 @@
+# .gitignore
+*.pth # ignore models
+*.csv # ignore tables
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -47,7 +52,6 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-*.py,cover
 .hypothesis/
 .pytest_cache/
 
@@ -91,12 +95,8 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow
-__pypackages__/
-
-# Celery stuff
+# celery beat schedule file
 celerybeat-schedule
-celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
@@ -104,7 +104,6 @@ celerybeat.pid
 # Environments
 .env
 .venv
-.vscode
 env/
 venv/
 ENV/
@@ -129,13 +128,62 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# StyleGAN2
-/stylegan2-ada-pytorch
-/stylegan2_intermediate
-/wandb
-/results
-/weights
+*.csv
 
-# data
-/data
-/pretrained
+*.pth
+
+*.csv#
+
+*.png
+
+*.pt
+# dont ignore the teaser
+!11794_ResNet18_ImageNet_input.png
+!11794_ResNet18_ImageNet_output.png
+
+*.zip
+
+.idea/*
+
+
+
+
+scripts/lcp*
+scripts/dlg*
+Untitled.ipynb
+ResNet18_untrained_Imagenet.py
+scripts/compare_imsize.sh
+scripts/z_norm_test.sh
+scripts/bn_attack.sh
+
+inversefed/genmodels/cifar10_dcgan/weights/*.pkl
+inversefed/genmodels/stylegan2/*.pkl
+*.pdf
+results/*
+
+#reproduce results
+reproduce_res
+new_design
+experiments
+results
+solve*
+former_results
+outputs
+batch_outputs
+defense_outputs
+images_paper
+infer_outputs
+
+#dataset
+media
+ood_ffhq
+ood_imagenet
+dataset
+ex2_ILO_repro
+
+mae
+pkl
+ood_outputs
+concat_img
+visualize
+

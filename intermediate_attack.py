@@ -144,7 +144,7 @@ def main():
     # Collect results: 收集结果
     w_optimized = []
     imgs_optimized = []
-
+    
     # Prepare batches for attack：准备攻击的batch
     for i in range(math.ceil(w.shape[0] / batch_size)):
         w_batch = w[i * batch_size:(i + 1) * batch_size].cuda()

@@ -53,12 +53,14 @@ class Optimization():
         # 设置优化器
         optimizer = self.config.create_optimizer(params=var_list)
         scheduler = self.config.create_lr_scheduler(optimizer)
+        origin_imgs = None
 
         # 开始中间层搜索
         for i in range(steps):
             imgs = self.synthesize(
                 w, layer_in=self.mid_vector[-1], num_ws=self.num_ws)
-
+            origin_imgs = imgs
+            
             # compute discriminator loss
             if self.discriminator_weight > 0:
                 discriminator_loss = self.compute_discriminator_loss(
@@ -110,8 +112,6 @@ class Optimization():
                         f'discriminator_loss={discriminator_loss:.4f} \t mean_conf={mean_conf:.4f}'
                     )
 
-            torch.cuda.empty_cache()
-
         # 搜索完成，为下一层的搜索做准备
         with torch.no_grad():
             self.synthesis.module.set_layer(start_layer, start_layer)
@@ -123,7 +123,7 @@ class Optimization():
             self.mid_vector.append(mid_vector)
             self.synthesis.module.set_layer(start_layer, self.config.intermediate['end'])
 
-        return imgs, w.detach()
+        return origin_imgs, w.detach()
 
     # 中间层搜索用的图片合成函数
     def synthesize(self, w, layer_in, num_ws):

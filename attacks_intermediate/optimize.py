@@ -8,13 +8,15 @@ import torch.nn as nn
 
 
 class Optimization():
-    def __init__(self, target_model, synthesis, discriminator, transformations, num_ws, config):
+    def __init__(self, target_model, augmented_models, synthesis, discriminator, transformations, num_ws, config):
         self.synthesis = synthesis
         self.target = target_model
+        self.augmentations = augmented_models
         self.discriminator = discriminator
         self.config = config
         self.transformations = transformations
         self.discriminator_weight = self.config.attack['discriminator_loss_weight']
+        self.augment = self.config.attack['augmentation_num']
         self.num_ws = num_ws
         self.clip = config.attack['clip']
         self.mid_vector = [None]      # 中间层的向量
@@ -45,10 +47,12 @@ class Optimization():
             else:
                 self.mid_vector[-1].requires_grad = True
                 var_list = [w.requires_grad_()] + [self.mid_vector[-1]]
+                print(self.mid_vector[-1].shape)
                 prev_mid_vector = torch.ones(
                     self.mid_vector[-1].shape, device=self.mid_vector[-1].device) * self.mid_vector[-1]
             prev_w = torch.ones(w.shape, device=w.device) * w
-            self.synthesis.module.set_layer(start_layer, self.config.intermediate['end'])
+            self.synthesis.module.set_layer(
+                start_layer, self.config.intermediate['end'])
 
         # 设置优化器
         optimizer = self.config.create_optimizer(params=var_list)
@@ -60,7 +64,7 @@ class Optimization():
             imgs = self.synthesize(
                 w, layer_in=self.mid_vector[-1], num_ws=self.num_ws)
             origin_imgs = imgs
-            
+
             # compute discriminator loss
             if self.discriminator_weight > 0:
                 discriminator_loss = self.compute_discriminator_loss(
@@ -79,9 +83,22 @@ class Optimization():
             target_loss = poincare_loss(
                 outputs, targets_batch).mean()
 
+            # 计算增强模型的identity loss
+            if self.augment > 0:
+                augment_outputs = self.augmentations(imgs)
+                augment_loss = poincare_loss(
+                    augment_outputs, targets_batch).mean()
+            else:
+                augment_loss = torch.tensor(0.0)
+
             # combine losses and compute gradients
             optimizer.zero_grad()
-            loss = target_loss + discriminator_loss * self.discriminator_weight
+            if self.augment > 0:
+                gamma = 0.5
+                loss = (gamma*target_loss + (1-gamma)*augment_loss) + \
+                    discriminator_loss * self.discriminator_weight
+            else:
+                loss = target_loss + discriminator_loss * self.discriminator_weight
             loss.backward()
             optimizer.step()
 
@@ -121,7 +138,8 @@ class Optimization():
             mid_vector, _ = self.synthesis(
                 w_expanded, layer_in=self.mid_vector[-1], noise_mode='const', force_fp32=True)
             self.mid_vector.append(mid_vector)
-            self.synthesis.module.set_layer(start_layer, self.config.intermediate['end'])
+            self.synthesis.module.set_layer(
+                start_layer, self.config.intermediate['end'])
 
         return origin_imgs, w.detach()
 

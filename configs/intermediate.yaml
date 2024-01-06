@@ -7,6 +7,10 @@ evaluation_model:
   architecture: inception-v3 # architecture of evaluation model
   num_classes: 1000 # number of output neurons
   weights: pretrained/inception_v3_celeba.pt # link to weight file
+augmented_models:
+  architecture: resnet152
+  num_classes: 1000
+  weights: pretrained/resnet152_ffhq_distill.pt
 
 stylegan_model: stylegan2_intermediate/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
@@ -31,6 +35,7 @@ attack:
   discriminator_loss_weight: 0.0 # Add discriminator weight.
   single_w: true # Optimize a single 512-vector. Otherwise, a distinct vector for each AdaIn operation is optimized.
   clip: false # Clip generated images in range [-1, 1].
+  augmentation_num: 1 # 是否启用模型增强
   transformations: # Transformations applied during the optimization.
     CenterCrop:
       size: 800
@@ -59,7 +64,7 @@ intermediate:
   start: 0
   end: 8
   steps: [70, 60, 50, 40]
-  max_radius_mid_vecor: [500, 600, 700, 800]
+  max_radius_mid_vecor: [1000, 1000, 1000, 1000]
   max_radius_w: [150, 150, 150, 150]
 
 final_selection:

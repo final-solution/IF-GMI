@@ -126,7 +126,8 @@ class Optimization():
                 if torch.cuda.current_device() == 0 and (i+1) % 10 == 0:
                     print(
                         f'iteration {i}: \t total_loss={loss:.4f} \t target_loss={target_loss:.4f} \t',
-                        f'discriminator_loss={discriminator_loss:.4f} \t mean_conf={mean_conf:.4f}'
+                        f'discriminator_loss={discriminator_loss:.4f} \t augment_loss={augment_loss:.4f} \t',
+                        f'mean_conf={mean_conf:.4f}'
                     )
 
         # 搜索完成，为下一层的搜索做准备

@@ -40,14 +40,14 @@ class AttackConfigParser:
         self.model = model
         return model
 
-    def create_augmented_models(self):
+    def create_augmented_models(self, index):
         if 'wandb_target_run' in self._config:
             model = load_model(self._config['wandb_target_run'])
         elif 'augmented_models' in self._config:
             config = self._config['augmented_models']
             model = Classifier(num_classes=config['num_classes'],
-                               architecture=config['architecture'])
-            model.load_state_dict(torch.load(config['weights'])['state_dict'])
+                               architecture=config['architecture'][index])
+            model.load_state_dict(torch.load(config['weights'][index])['state_dict'])
             model.wandb_name = None
         else:
             raise RuntimeError('No augmented model stated in the config file.')

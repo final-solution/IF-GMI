@@ -8,9 +8,9 @@ evaluation_model:
   num_classes: 1000 # number of output neurons
   weights: pretrained/inception_v3_celeba.pt # link to weight file
 augmented_models:
-  architecture: resnet152
+  architecture: [resnet152]
   num_classes: 1000
-  weights: pretrained/resnet152_ffhq_distill.pt
+  weights: [pretrained/resnet152_ffhq_distill.pt]
 
 stylegan_model: stylegan2_intermediate/ffhq.pkl # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.

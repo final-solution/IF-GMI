@@ -78,14 +78,21 @@ def main():
     target_dataset = config.get_target_dataset()
     
     # Load augmented models: 加载增强模型，用于克服过拟合
-    augmented_model = config.create_augmented_models()
-    augmented_model_name = augmented_model.name
+    aug_num = config.attack['augmentation_num']
+    augmented_models = []
+    augmented_models_name = []
+    for i in range(aug_num):
+        augmented_model = config.create_augmented_models(i)
+        augmented_model_name = augmented_model.name
+        augmented_models.append(augmented_model)
+        augmented_models_name.append(augmented_model_name)
 
     # Distribute models: 设置为分布式部署在多个GPU上
     target_model = torch.nn.DataParallel(target_model, device_ids=gpu_devices)
     target_model.name = target_model_name
-    augmented_model = torch.nn.DataParallel(augmented_model, device_ids=gpu_devices)
-    augmented_model.name = augmented_model_name
+    for i in range(aug_num):
+        augmented_models[i] = torch.nn.DataParallel(augmented_models[i], device_ids=gpu_devices)
+        augmented_models[i].name = augmented_models_name[i]
     synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
     synthesis.num_ws = num_ws
     discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
@@ -144,7 +151,7 @@ def main():
     ####################################
     #         Attack Iteration         #
     ####################################
-    optimization = Optimization(target_model, augmented_model, synthesis, discriminator,
+    optimization = Optimization(target_model, augmented_models, synthesis, discriminator,
                                 attack_transformations, num_ws, config)
 
     # Collect results: 收集结果

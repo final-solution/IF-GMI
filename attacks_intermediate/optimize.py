@@ -84,18 +84,19 @@ class Optimization():
                 outputs, targets_batch).mean()
 
             # 计算增强模型的identity loss
+            augment_loss = torch.tensor(0.0).cuda()
             if self.augment > 0:
-                augment_outputs = self.augmentations(imgs)
-                augment_loss = poincare_loss(
-                    augment_outputs, targets_batch).mean()
-            else:
-                augment_loss = torch.tensor(0.0)
+                for index in range(self.augment):
+                    augment_outputs = self.augmentations[index](imgs)
+                    augment_loss += poincare_loss(
+                        augment_outputs, targets_batch).mean()
 
             # combine losses and compute gradients
             optimizer.zero_grad()
             if self.augment > 0:
-                gamma = 0.5
-                loss = (gamma*target_loss + (1-gamma)*augment_loss) + \
+                gamma_t = 1.0 / (self.augment+1)
+                gamma_aug = gamma_t
+                loss = (gamma_t*target_loss + gamma_aug*augment_loss) + \
                     discriminator_loss * self.discriminator_weight
             else:
                 loss = target_loss + discriminator_loss * self.discriminator_weight

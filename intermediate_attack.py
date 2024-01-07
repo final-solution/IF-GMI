@@ -69,7 +69,7 @@ def main():
 
     # Load pre-trained StyleGan2 components: 加载预训练GAN
     G = load_generator(config.stylegan_model)
-    D = load_discrimator(config.stylegan_model)
+    # D = load_discrimator(config.stylegan_model)
     num_ws = G.num_ws
 
     # Load target model and set dataset: 加载目标模型与数据集
@@ -95,7 +95,8 @@ def main():
         augmented_models[i].name = augmented_models_name[i]
     synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
     synthesis.num_ws = num_ws
-    discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
+    # discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
+    discriminator = None
 
     # Load basic attack parameters: 加载基础攻击参数
     num_epochs = config.attack['num_epochs']

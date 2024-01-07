@@ -81,6 +81,7 @@ def main():
     synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
     synthesis.num_ws = num_ws
     discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
+    # discriminator = None
 
     # Load basic attack parameters: 加载基础攻击参数
     num_epochs = config.attack['num_epochs']

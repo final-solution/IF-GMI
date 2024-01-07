@@ -131,7 +131,6 @@ dmypy.json
 
 # StyleGAN2
 /stylegan2-ada-pytorch
-/stylegan2_intermediate/ffhq.pkl
 /wandb
 /results
 /weights
@@ -140,3 +139,4 @@ dmypy.json
 /data
 /pretrained
 *.pth
+*.pkl

@@ -105,11 +105,13 @@ def load_generator(filepath):
     G = Generator(z_dim=512, c_dim=0, w_dim=512,
                   img_resolution=1024, img_channels=3,
                   mapping_kwargs=mapping, synthesis_kwargs=synthesis)
-    with open(filepath, 'rb') as f:
-        obj = f.read()
-    weights = {key: weight_dict for key,
-               weight_dict in pickle.loads(obj, encoding='latin1').items()}
-    G.load_state_dict(weights, strict=False)
+    # with open(filepath, 'rb') as f:
+    #     obj = f.read()
+    # weights = {key: weight_dict for key,
+    #            weight_dict in pickle.loads(obj, encoding='latin1').items()}
+    # G.load_state_dict(weights, strict=False)
+    state_dict = torch.load(filepath, map_location='cpu')['state_dict']
+    G.load_state_dict(state_dict)
     G = G.cuda()
     return G
 

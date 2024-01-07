@@ -11,9 +11,6 @@ augmented_models:
   architecture: [resnet152,resnext101]
   num_classes: 1000
   weights: [pretrained/resnet152_ffhq_distill.pt,pretrained/resnext101_ffhq_distill.pt]
-  # architecture: []
-  # num_classes: 1000
-  # weights: []
 
 stylegan_model: stylegan2_intermediate/ffhq_G.pth # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.

@@ -134,12 +134,12 @@ class Optimization():
                         f'discriminator_loss={discriminator_loss:.4f} \t augment_loss={augment_loss:.4f} \t',
                         f'mean_conf={mean_conf:.4f}'
                     )
-                    if self.config.intermediate['max_radius_w'][index] > 0:
-                        w_diff = torch.abs(prev_w - var_list[0]).mean(dim=0)
-                        print(f'w diff mean {w_diff.mean()} sum {w_diff.sum()}')
-                    if start_layer != 0 and self.config.intermediate['max_radius_mid_vecor'][index] > 0:
-                        mid_diff = torch.abs(prev_mid_vector - var_list[-1]).mean(dim=0)
-                        print(f'mid diff mean {mid_diff.mean()} sum {mid_diff.sum()}')
+                    # if self.config.intermediate['max_radius_w'][index] > 0:
+                    #     w_diff = torch.abs(prev_w - var_list[0]).mean(dim=0)
+                    #     print(f'w diff mean {w_diff.mean()} sum {w_diff.sum()}')
+                    # if start_layer != 0 and self.config.intermediate['max_radius_mid_vecor'][index] > 0:
+                    #     mid_diff = torch.abs(prev_mid_vector - var_list[-1]).mean(dim=0)
+                    #     print(f'mid diff mean {mid_diff.mean()} sum {mid_diff.sum()}')
                         
 
         # 搜索完成，为下一层的搜索做准备

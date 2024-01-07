@@ -153,6 +153,8 @@ class Optimization():
                 w_expanded, layer_in=self.mid_vector[-1], noise_mode='const', force_fp32=True)
             # print(mid_vector.shape)
             # exit()
+            if self.mid_vector[-1] is not None:
+                self.mid_vector[-1] = self.mid_vector[-1].detach().cpu()
             self.mid_vector.append(mid_vector)
             self.synthesis.module.set_layer(
                 start_layer, self.config.intermediate['end'])

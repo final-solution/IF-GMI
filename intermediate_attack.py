@@ -28,13 +28,41 @@ from utils_intermediate.datasets import (create_target_dataset, get_facescrub_id
 from utils_intermediate.stylegan import create_image, load_discrimator, load_generator
 from utils_intermediate.wandb import *
 
+os.environ["WANDB_MODE"]="offline"
+
+import sys
+class Tee(object):
+    """A workaround method to print in console and write to log file
+    """
+    def __init__(self, name, mode):
+        self.file = open(name, mode)
+        self.stdout = sys.stdout
+        sys.stdout = self
+    def __del__(self):
+        sys.stdout = self.stdout
+        self.file.close()
+    def write(self, data):
+        if not '...' in data:
+            self.file.write(data)
+        self.stdout.write(data)
+    def flush(self):
+        self.file.flush()
+
 
 def main():
     ####################################
     #        Attack Preparation        #
     ####################################
+    
+    
+    
+    
     import time
     start_time = time.perf_counter()
+    
+    now_time = time.strftime('%Y%m%d_%H%M',time.localtime(time.time()))
+    tee = Tee(f'inter_{now_time}.log', 'w')
+    
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)

@@ -66,7 +66,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -172,7 +172,7 @@ def main():
         Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
         init_w_path = f"{result_path}/init_w_{run_id}.pt"
         torch.save(w.detach(), init_w_path)
-        wandb.save(init_w_path)
+        wandb.save(init_w_path, policy='now')
 
     # Create attack transformations: 用到的数据增强方式
     attack_transformations = config.create_attack_transformations()
@@ -221,7 +221,7 @@ def main():
     if config.logging:
         optimized_w_path = f"{result_path}/optimized_w_{run_id}.pt"
         torch.save(w_optimized_unselected.detach(), optimized_w_path)
-        wandb.save(optimized_w_path)
+        wandb.save(optimized_w_path, policy='now')
 
     ####################################
     #          Filter Results          #
@@ -256,7 +256,7 @@ def main():
     if config.logging:
         optimized_w_path_selected = f"{result_path}/optimized_w_selected_{run_id}.pt"
         torch.save(final_w.detach(), optimized_w_path_selected)
-        wandb.save(optimized_w_path_selected)
+        wandb.save(optimized_w_path_selected, policy='now')
         wandb.config.update({'w_path': optimized_w_path})
 
     ####################################
@@ -290,7 +290,7 @@ def main():
                 filename_precision = write_precision_list(
                     f'{result_path}/precision_list_unfiltered_{run_id}',
                     precision_list)
-                wandb.save(filename_precision)
+                wandb.save(filename_precision, policy='now')
             except:
                 pass
         print(
@@ -314,7 +314,7 @@ def main():
                 filename_precision = write_precision_list(
                     f'{result_path}/precision_list_filtered_{run_id}',
                     precision_list)
-                wandb.save(filename_precision)
+                wandb.save(filename_precision, policy='now')
 
             print(
                 f'Filtered Evaluation of {final_w.shape[0]} images on Inception-v3: \taccuracy@1={acc_top1:4f}, ',
@@ -417,7 +417,7 @@ def main():
                 filename_distance = write_precision_list(
                     f'{result_path}/distance_inceptionv3_list_filtered_{run_id}',
                     mean_distances_list)
-                wandb.save(filename_distance)
+                wandb.save(filename_distance, policy='now')
             except:
                 pass
 
@@ -448,7 +448,7 @@ def main():
                 filename_distance = write_precision_list(
                     f'{result_path}/distance_facenet_list_filtered_{run_id}',
                     mean_distances_list)
-                wandb.save(filename_distance)
+                wandb.save(filename_distance, policy='now')
 
             print('Mean Distance on FaceNet: ', avg_dist_facenet.cpu().item())
     except Exception:
@@ -634,7 +634,7 @@ def init_wandb_logging(optimizer, target_model_name, config, args):
             'name'] = f'{optimizer_name}_{lr}_{target_model_name}'
     wandb_config = config.create_wandb_config()
     run = wandb.init(config=wandb_config, **config.wandb['wandb_init_args'])
-    wandb.save(args.config)
+    wandb.save(args.config, policy='now')
     return run
 
 
@@ -692,7 +692,7 @@ def log_final_images(imgs, predictions, max_confidences, target_confidences,
 def final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1, acc_top5,
                         avg_dist_facenet, avg_dist_eval, fid_score, precision,
                         recall, density, coverage):
-    wandb.save('attacks/gradient_based.py')
+    wandb.save('attacks/gradient_based.py', policy='now')
     wandb.run.summary['correct_avg_conf'] = avg_correct_conf
     wandb.run.summary['total_avg_conf'] = avg_total_conf
     wandb.run.summary['evaluation_acc@1'] = acc_top1

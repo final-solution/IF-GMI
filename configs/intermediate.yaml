@@ -66,9 +66,9 @@ attack:
 intermediate:
   start: 0
   end: 8
-  steps: [70,60,50,40]
-  max_radius_mid_vecor: [1000, 1000, 1000, 1000]
-  max_radius_w: [150, 150, 150, 150]
+  steps: [25,25,25,25,25,25,25,25]
+  max_radius_mid_vecor: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
+  max_radius_w: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
 
 final_selection:
   samples_per_target: 50 # Number of samples to select from the set of optimized latent vectors.

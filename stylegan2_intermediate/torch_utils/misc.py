@@ -90,6 +90,7 @@ def assert_shape(tensor, ref_shape):
             with suppress_tracer_warnings(): # as_tensor results are registered as constants
                 symbolic_assert(torch.equal(size, torch.as_tensor(ref_size)), f'Wrong size for dimension {idx}: expected {ref_size}')
         elif size != ref_size:
+            print(f'>> tensor shape: {tensor.shape}  ref shape {ref_shape}')
             raise AssertionError(f'Wrong size for dimension {idx}: got {size}, expected {ref_size}')
 
 #----------------------------------------------------------------------------

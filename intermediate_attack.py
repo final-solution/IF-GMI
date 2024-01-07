@@ -28,17 +28,45 @@ from utils_intermediate.datasets import (create_target_dataset, get_facescrub_id
 from utils_intermediate.stylegan import create_image, load_discrimator, load_generator
 from utils_intermediate.wandb import *
 
+os.environ["WANDB_MODE"]="offline"
+
+import sys
+class Tee(object):
+    """A workaround method to print in console and write to log file
+    """
+    def __init__(self, name, mode):
+        self.file = open(name, mode)
+        self.stdout = sys.stdout
+        sys.stdout = self
+    def __del__(self):
+        sys.stdout = self.stdout
+        self.file.close()
+    def write(self, data):
+        if not '...' in data:
+            self.file.write(data)
+        self.stdout.write(data)
+    def flush(self):
+        self.file.flush()
+
 
 def main():
     ####################################
     #        Attack Preparation        #
     ####################################
+    
+    
+    
+    
     import time
     start_time = time.perf_counter()
+    
+    now_time = time.strftime('%Y%m%d_%H%M',time.localtime(time.time()))
+    tee = Tee(f'inter_{now_time}.log', 'w')
+    
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -69,20 +97,34 @@ def main():
 
     # Load pre-trained StyleGan2 components: 加载预训练GAN
     G = load_generator(config.stylegan_model)
-    D = load_discrimator(config.stylegan_model)
+    # D = load_discrimator(config.stylegan_model)
     num_ws = G.num_ws
 
     # Load target model and set dataset: 加载目标模型与数据集
     target_model = config.create_target_model()
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset()
+    
+    # Load augmented models: 加载增强模型，用于克服过拟合
+    aug_num = config.attack['augmentation_num']
+    augmented_models = []
+    augmented_models_name = []
+    for i in range(aug_num):
+        augmented_model = config.create_augmented_models(i)
+        augmented_model_name = augmented_model.name
+        augmented_models.append(augmented_model)
+        augmented_models_name.append(augmented_model_name)
 
     # Distribute models: 设置为分布式部署在多个GPU上
     target_model = torch.nn.DataParallel(target_model, device_ids=gpu_devices)
     target_model.name = target_model_name
+    for i in range(aug_num):
+        augmented_models[i] = torch.nn.DataParallel(augmented_models[i], device_ids=gpu_devices)
+        augmented_models[i].name = augmented_models_name[i]
     synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
     synthesis.num_ws = num_ws
-    discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
+    # discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
+    discriminator = None
 
     # Load basic attack parameters: 加载基础攻击参数
     num_epochs = config.attack['num_epochs']
@@ -138,7 +180,7 @@ def main():
     ####################################
     #         Attack Iteration         #
     ####################################
-    optimization = Optimization(target_model, synthesis, discriminator,
+    optimization = Optimization(target_model, augmented_models, synthesis, discriminator,
                                 attack_transformations, num_ws, config)
 
     # Collect results: 收集结果
@@ -174,8 +216,6 @@ def main():
     imgs_optimized_unselected = torch.cat(imgs_optimized, dim=0)
     torch.cuda.empty_cache()
     del discriminator
-    
-    print(imgs_optimized_unselected.shape)
 
     # Log optimized vectors: 记录优化得到的隐向量
     if config.logging:

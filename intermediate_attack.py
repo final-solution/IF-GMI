@@ -213,6 +213,8 @@ def main():
     imgs_optimized_unselected = torch.cat(imgs_optimized, dim=0)
     torch.cuda.empty_cache()
     del discriminator,synthesis
+    
+    synthesis = None
 
     # Log optimized vectors: 记录优化得到的隐向量
     if config.logging:

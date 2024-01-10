@@ -22,8 +22,13 @@ class Optimization():
         self.clip = config.attack['clip']
         self.mid_vector = [None]      # 中间层的向量
         self.intermediate_imgs = {i:[] for i in range(len(config.intermediate['steps']))}
+        self.intermediate_w = {i:[] for i in range(len(config.intermediate['steps']))}
+    
+    def flush_imgs(self):
+        self.intermediate_imgs = {i:[] for i in range(len(self.config.intermediate['steps']))}
+        self.intermediate_w = {i:[] for i in range(len(self.config.intermediate['steps']))}
 
-    def optimize(self, w_batch, targets_batch, num_epochs):
+    def optimize(self, w_batch, targets_batch):
         print("-------------start intermidiate space search---------------")
         self.mid_vector = [None]
 
@@ -37,8 +42,7 @@ class Optimization():
             imgs, w_batch = self.intermediate(
                 w_batch, start_layer, targets_batch, steps, i)
             self.intermediate_imgs[i].append(imgs.detach().cpu())
- 
-        return w_batch.detach()
+            self.intermediate_w[i].append(w_batch.detach().cpu())
 
     # 定义中间层搜索一层的函数
     def intermediate(self, w, start_layer, targets_batch, steps, index):

@@ -10,15 +10,20 @@ from metrics_intermediate.accuracy import Accuracy, AccuracyTopK
 
 class ClassificationAccuracy():
 
-    def __init__(self, evaluation_network, device='cuda:0'):
+    def __init__(self, evaluation_network, layer_num, device='cuda'):
         self.evaluation_network = evaluation_network
         self.device = device
+        self.acc_top1 = [Accuracy()*layer_num]
+        self.acc_top5 = [AccuracyTopK(k=5)]*layer_num
+        self.predictions = {i:[] for i in range(layer_num)}
+        self.correct_confidences = {i:[] for i in range(layer_num)}
+        self.total_confidences = {i:[] for i in range(layer_num)}
+        self.maximum_confidences = {i:[] for i in range(layer_num)}
 
     def compute_acc(self,
-                    # w,
+                    layer,
                     images,
                     targets,
-                    # generator,
                     config,
                     batch_size=64,
                     resize=299,
@@ -27,13 +32,6 @@ class ClassificationAccuracy():
         self.evaluation_network.to(self.device)
         # dataset = TensorDataset(w, targets)
         dataset = TensorDataset(images, targets)
-        acc_top1 = Accuracy()
-        acc_top5 = AccuracyTopK(k=5)
-        predictions = []
-        correct_confidences = []
-        total_confidences = []
-        maximum_confidences = []
-
         max_iter = math.ceil(len(dataset) / batch_size)
 
         # 从图片开始计算
@@ -48,49 +46,50 @@ class ClassificationAccuracy():
                 # imgs = imgs.to(self.device)
                 output = self.evaluation_network(imgs)
 
-                acc_top1.update(output, target_batch)
-                acc_top5.update(output, target_batch)
+                self.acc_top1[layer].update(output, target_batch)
+                self.acc_top5[layer].update(output, target_batch)
 
                 pred = torch.argmax(output, dim=1)
-                predictions.append(pred)
+                self.predictions[layer].append(pred)
                 confidences = output.softmax(1)
                 target_confidences = torch.gather(confidences, 1,
                                                   target_batch.unsqueeze(1))
-                correct_confidences.append(
+                self.correct_confidences[layer].append(
                     target_confidences[pred == target_batch])
-                total_confidences.append(target_confidences)
-                maximum_confidences.append(torch.max(confidences, dim=1)[0])
+                self.total_confidences[layer].append(target_confidences)
+                self.maximum_confidences[layer].append(
+                    torch.max(confidences, dim=1)[0])
 
-            acc_top1 = acc_top1.compute_metric()
-            acc_top5 = acc_top5.compute_metric()
-            correct_confidences = torch.cat(correct_confidences, dim=0)
-            avg_correct_conf = correct_confidences.mean().cpu().item()
-            confidences = torch.cat(total_confidences, dim=0).cpu()
-            confidences = torch.flatten(confidences)
-            maximum_confidences = torch.cat(maximum_confidences,
-                                            dim=0).cpu().tolist()
-            avg_total_conf = torch.cat(total_confidences,
-                                       dim=0).mean().cpu().item()
-            predictions = torch.cat(predictions, dim=0).cpu()
+                if rtpt:
+                    rtpt.step(
+                        subtitle=f'Classification Evaluation step {step} of {max_iter}')
 
-            # Compute class-wise precision
-            target_list = targets.cpu().tolist()
-            precision_list = [['target', 'mean_conf', 'precision']]
-            for t in set(target_list):
-                mask = torch.where(targets == t, True, False).cpu()
-                conf_masked = confidences[mask]
-                precision = torch.sum(predictions[mask] == t) / torch.sum(
-                    targets == t)
-                precision_list.append(
-                    [t, conf_masked.mean().item(),
-                     precision.cpu().item()])
-            confidences = confidences.tolist()
-            predictions = predictions.tolist()
+    def get_compute_result(self, layer, targets):
+        acc_top1 = self.acc_top1[layer].compute_metric()
+        acc_top5 = self.acc_top5[layer].compute_metric()
+        correct_confidences = torch.cat(self.correct_confidences[layer], dim=0)
+        avg_correct_conf = correct_confidences.mean().cpu().item()
+        confidences = torch.cat(self.total_confidences[layer], dim=0).cpu()
+        confidences = torch.flatten(confidences)
+        maximum_confidences = torch.cat(self.maximum_confidences[layer],
+                                        dim=0).cpu().tolist()
+        avg_total_conf = torch.cat(self.total_confidences[layer],
+                                   dim=0).mean().cpu().item()
+        predictions = torch.cat(self.predictions[layer], dim=0).cpu()
 
-            if rtpt:
-                rtpt.step(
-                    subtitle=
-                    f'Classification Evaluation step {step} of {max_iter}')
+        # Compute class-wise precision
+        target_list = targets.cpu().tolist()
+        precision_list = [['target', 'mean_conf', 'precision']]
+        for t in set(target_list):
+            mask = torch.where(targets == t, True, False).cpu()
+            conf_masked = confidences[mask]
+            precision = torch.sum(predictions[mask] == t) / torch.sum(
+                targets == t)
+            precision_list.append(
+                [t, conf_masked.mean().item(),
+                    precision.cpu().item()])
+        confidences = confidences.tolist()
+        predictions = predictions.tolist()
 
         return acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, \
             confidences, maximum_confidences, precision_list

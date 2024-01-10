@@ -15,7 +15,7 @@ augmented_models:
 stylegan_model: stylegan2_intermediate/ffhq_G.pth # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: celeba_identities # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
-result_path: results/IPPA
+result_path: results/intermediate
 
 candidates:
   num_candidates: 200 # Number of latent vectors to optimize for each target.
@@ -35,7 +35,7 @@ attack:
   discriminator_loss_weight: 0.0 # Add discriminator weight.
   single_w: true # Optimize a single 512-vector. Otherwise, a distinct vector for each AdaIn operation is optimized.
   clip: false # Clip generated images in range [-1, 1].
-  augmentation_num: 2 # 是否启用模型增强
+  augmentation_num: 0 # 使用增强模型的数量,0为不使用
   transformations: # Transformations applied during the optimization.
     CenterCrop:
       size: 800
@@ -79,4 +79,4 @@ wandb: # Options for WandB logging.
     project: intermediate-MIA
     entity: model-inversion
     save_code: false
-    name: intermediate-CelebA-1
+    name: intermediate-CelebA-10

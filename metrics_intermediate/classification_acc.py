@@ -15,10 +15,10 @@ class ClassificationAccuracy():
         self.device = device
         self.acc_top1 = [Accuracy()]*layer_num
         self.acc_top5 = [AccuracyTopK(k=5)]*layer_num
-        self.predictions = {i:[] for i in range(layer_num)}
-        self.correct_confidences = {i:[] for i in range(layer_num)}
-        self.total_confidences = {i:[] for i in range(layer_num)}
-        self.maximum_confidences = {i:[] for i in range(layer_num)}
+        self.predictions = {i: [] for i in range(layer_num)}
+        self.correct_confidences = {i: [] for i in range(layer_num)}
+        self.total_confidences = {i: [] for i in range(layer_num)}
+        self.maximum_confidences = {i: [] for i in range(layer_num)}
 
     def compute_acc(self,
                     layer,

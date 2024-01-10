@@ -158,10 +158,10 @@ def main():
     # Initialize wandb logging: 使用wandb的日志记录操作
     if config.logging:
         optimizer = config.create_optimizer(params=[w])
-        wandb_run = init_wandb_logging(optimizer, target_model_name, config,
+        wandb_run, save_config= init_wandb_logging(optimizer, target_model_name, config,
                                        args)
         save_dict_to_yaml(
-            config, f"{result_path}/{config.wandb['wandb_init_args']['name']}")
+            save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
         run_id = wandb_run.id
 
     # Print attack configuration: 打印攻击参数设置
@@ -205,10 +205,6 @@ def main():
     # Collect results: 收集结果
     w_optimized_unselected_all = {i: [] for i in range(layer_num)}
     final_w_all = {i: [] for i in range(layer_num)}
-    unfiltered_best_layer_result_all = []
-    best_layer_result_all = []
-    per_layer_result = {i: [] for i in range(layer_num)}
-    unfiltered_per_layer_result = {i: [] for i in range(layer_num)}
 
     # 每个class分别迭代计算，减少内存消耗
     for idx, target in enumerate(config.targets):
@@ -708,7 +704,7 @@ def init_wandb_logging(optimizer, target_model_name, config, args):
     wandb_config = config.create_wandb_config()
     run = wandb.init(config=wandb_config, **config.wandb['wandb_init_args'])
     wandb.save(args.config, policy='now')
-    return run
+    return run, wandb_config
 
 
 def intermediate_wandb_logging(optimizer, targets, confidences, loss,

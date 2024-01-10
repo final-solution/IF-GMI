@@ -13,7 +13,7 @@ class ClassificationAccuracy():
     def __init__(self, evaluation_network, layer_num, device='cuda'):
         self.evaluation_network = evaluation_network
         self.device = device
-        self.acc_top1 = [Accuracy()*layer_num]
+        self.acc_top1 = [Accuracy()]*layer_num
         self.acc_top5 = [AccuracyTopK(k=5)]*layer_num
         self.predictions = {i:[] for i in range(layer_num)}
         self.correct_confidences = {i:[] for i in range(layer_num)}

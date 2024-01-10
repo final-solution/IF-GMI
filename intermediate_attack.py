@@ -307,8 +307,9 @@ def main():
                 f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
             )
 
-        acc_top1, acc_top5, avg_correct_conf, avg_total_conf, layer = best_layer_result[
-            0, 1, 3, 4, -1]
+        # acc_top1, acc_top5, avg_correct_conf, avg_total_conf, layer = best_layer_result[
+        #     0, 1, 3, 4, -1]
+        acc_top1, acc_top5, avg_correct_conf, avg_total_conf, layer = best_layer_result[0], best_layer_result[1], best_layer_result[3], best_layer_result[4], best_layer_result[-1]
         print(
             f'\nUnfiltered Evaluation of {final_w.shape[0]} images on Inception-v3 and best layer is {layer}!'
         )
@@ -343,8 +344,9 @@ def main():
                     best_layer_result[-1])
                 wandb.save(filename_precision, policy='now')
 
-            acc_top1, acc_top5, avg_correct_conf, avg_total_conf, layer = best_layer_result[
-                0, 1, 3, 4, -1]
+            # acc_top1, acc_top5, avg_correct_conf, avg_total_conf, layer = best_layer_result[
+            #     0, 1, 3, 4, -1]
+            acc_top1, acc_top5, avg_correct_conf, avg_total_conf, layer = best_layer_result[0], best_layer_result[1], best_layer_result[3], best_layer_result[4], best_layer_result[-1]
             print(
                 f'\nFiltered Evaluation of {final_w.shape[0]} images on Inception-v3 and best layer is {layer}!'
             )

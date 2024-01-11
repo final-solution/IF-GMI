@@ -214,7 +214,7 @@ def main():
         # Prepare batches for attack：准备攻击的batch
         for i in range(math.ceil(num_candidates / batch_size)):
             start_idx = idx * num_candidates + i * batch_size
-            end_idx = start_idx + batch_size
+            end_idx = min(start_idx + batch_size, (idx+1)*num_candidates)
             w_batch = w[start_idx:end_idx].cuda()
             targets_batch = targets[start_idx:end_idx].cuda()
             print(
@@ -318,12 +318,12 @@ def main():
     # Log optimized vectors: 记录优化得到的隐向量
     if config.logging:
         optimized_w_path = f"{result_path}/optimized_w_{run_id}.pt"
-        torch.save(w_optimized_unselected_all.detach(), optimized_w_path)
+        torch.save(w_optimized_unselected_all, optimized_w_path)
         wandb.save(optimized_w_path, policy='now')
 
     # Log selected vectors: 记录选择结果
         optimized_w_path_selected = f"{result_path}/optimized_w_selected_{run_id}.pt"
-        torch.save(final_w_all.detach(), optimized_w_path_selected)
+        torch.save(final_w_all, optimized_w_path_selected)
         wandb.save(optimized_w_path_selected, policy='now')
         wandb.config.update({'w_path': optimized_w_path})
 

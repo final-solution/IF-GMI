@@ -13,8 +13,8 @@ class ClassificationAccuracy():
     def __init__(self, evaluation_network, layer_num, device='cuda'):
         self.evaluation_network = evaluation_network
         self.device = device
-        self.acc_top1 = [Accuracy()]*layer_num
-        self.acc_top5 = [AccuracyTopK(k=5)]*layer_num
+        self.acc_top1 = [Accuracy() for i in range(layer_num)]
+        self.acc_top5 = [AccuracyTopK(k=5) for i in range(layer_num)]
         self.predictions = {i: [] for i in range(layer_num)}
         self.correct_confidences = {i: [] for i in range(layer_num)}
         self.total_confidences = {i: [] for i in range(layer_num)}
@@ -60,9 +60,9 @@ class ClassificationAccuracy():
                 self.maximum_confidences[layer].append(
                     torch.max(confidences, dim=1)[0])
 
-                if rtpt:
-                    rtpt.step(
-                        subtitle=f'Classification Evaluation step {step} of {max_iter}')
+            if rtpt:
+                rtpt.step(
+                    subtitle=f'Classification Evaluation step {step} of {max_iter}')
 
     def get_compute_result(self, layer, targets):
         acc_top1 = self.acc_top1[layer].compute_metric()

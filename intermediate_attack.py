@@ -67,7 +67,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -140,7 +140,7 @@ def main():
     class_acc_evaluator = ClassificationAccuracy(evaluation_model,
                                                  layer_num=layer_num,
                                                  device=device)
-    class_acc_evaluator_2 = ClassificationAccuracy(evaluation_model,
+    class_acc_evaluator_selected = ClassificationAccuracy(evaluation_model,
                                                    layer_num=layer_num,
                                                    device=device)
 
@@ -255,10 +255,10 @@ def main():
                 f'\nSelect final set of max. {config.final_selection["samples_per_target"]} ',
                 f'images per target using {config.final_selection["approach"]} approach.'
             )
-            for i in range(layer_num):
+            for j in range(layer_num):
                 final_w, final_targets, final_layer_imgs = perform_final_selection(
-                    w_optimized_unselected[i],
-                    imgs_optimized_unselected[i],
+                    w_optimized_unselected[j],
+                    imgs_optimized_unselected[j],
                     config,
                     target_list,
                     target_model,
@@ -266,8 +266,8 @@ def main():
                     batch_size=batch_size * 10,
                     **config.final_selection,
                     rtpt=rtpt)
-                final_imgs[i] = final_layer_imgs
-                final_w_all[i].append(final_w)
+                final_imgs[j] = final_layer_imgs
+                final_w_all[j].append(final_w)
             print(f'Selected a total of {final_w.shape[0]} final images ',
                   f'of target classes {set(final_targets.cpu().tolist())}.')
         else:
@@ -283,10 +283,10 @@ def main():
         # Compute attack accuracy with evaluation model on all generated samples
         try:
             # 计算准确率acc
-            for i in range(layer_num):
+            for layer in range(layer_num):
                 class_acc_evaluator.compute_acc(
-                    i,
-                    imgs_optimized_unselected[i],
+                    layer,
+                    imgs_optimized_unselected[layer],
                     target_list,
                     config,
                     batch_size=batch_size * 2,
@@ -295,10 +295,10 @@ def main():
 
             # Compute attack accuracy on filtered samples: 在筛选过的样本中计算acc
             if config.final_selection:
-                for i in range(layer_num):
-                    class_acc_evaluator_2.compute_acc(
-                        i,
-                        final_imgs[i],
+                for layer in range(layer_num):
+                    class_acc_evaluator_selected.compute_acc(
+                        layer,
+                        final_imgs[layer],
                         final_targets,
                         config,
                         batch_size=batch_size * 2,
@@ -355,7 +355,7 @@ def main():
 
         for i in range(layer_num):
             best_layer_result = [0]
-            acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_2.get_compute_result(i,
+            acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_selected.get_compute_result(i,
                                                                                                                                                                                   targets)
             if acc_top1 > best_layer_result[0]:
                 best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,

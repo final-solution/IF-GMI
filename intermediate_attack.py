@@ -67,18 +67,17 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
     # Define and parse attack arguments: 参数管理
     parser = create_parser()
     config, args = parse_arguments(parser)
-    result_path = config.path
+    
     layer_num = len(config.intermediate['steps'])
-    if config.logging:
-        Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
-        tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
+    
+    
 
     # Set seeds: 随机种子
     torch.manual_seed(config.seed)
@@ -156,13 +155,28 @@ def main():
     del G
 
     # Initialize wandb logging: 使用wandb的日志记录操作
+    
+    result_path = config.path
+    # if config.logging:
+        
+        
     if config.logging:
         optimizer = config.create_optimizer(params=[w])
         wandb_run, save_config= init_wandb_logging(optimizer, target_model_name, config,
                                        args)
+        
+        run_id = wandb_run.id
+        
+        result_path = os.path.join(config.path, run_id)
+        
+        Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
+        
         save_dict_to_yaml(
             save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
-        run_id = wandb_run.id
+        
+        
+        
+        tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
 
     # Print attack configuration: 打印攻击参数设置
     print(
@@ -214,7 +228,7 @@ def main():
         # Prepare batches for attack：准备攻击的batch
         for i in range(math.ceil(num_candidates / batch_size)):
             start_idx = idx * num_candidates + i * batch_size
-            end_idx = start_idx + batch_size
+            end_idx = min(start_idx + batch_size, (idx + 1) * num_candidates)
             w_batch = w[start_idx:end_idx].cuda()
             targets_batch = targets[start_idx:end_idx].cuda()
             print(
@@ -284,6 +298,7 @@ def main():
         try:
             # 计算准确率acc
             for i in range(layer_num):
+                print(f'layer {i} img unselect shape {imgs_optimized_unselected[i].shape}; len target {len(target_list)}')
                 class_acc_evaluator.compute_acc(
                     i,
                     imgs_optimized_unselected[i],
@@ -296,6 +311,7 @@ def main():
             # Compute attack accuracy on filtered samples: 在筛选过的样本中计算acc
             if config.final_selection:
                 for i in range(layer_num):
+                    print(f'layer {i} img unselect shape {imgs_optimized_unselected[i].shape}; len target {len(target_list)}')
                     class_acc_evaluator_2.compute_acc(
                         i,
                         final_imgs[i],
@@ -318,12 +334,12 @@ def main():
     # Log optimized vectors: 记录优化得到的隐向量
     if config.logging:
         optimized_w_path = f"{result_path}/optimized_w_{run_id}.pt"
-        torch.save(w_optimized_unselected_all.detach(), optimized_w_path)
+        torch.save(w_optimized_unselected_all, optimized_w_path)
         wandb.save(optimized_w_path, policy='now')
 
     # Log selected vectors: 记录选择结果
         optimized_w_path_selected = f"{result_path}/optimized_w_selected_{run_id}.pt"
-        torch.save(final_w_all.detach(), optimized_w_path_selected)
+        torch.save(final_w_all, optimized_w_path_selected)
         wandb.save(optimized_w_path_selected, policy='now')
         wandb.config.update({'w_path': optimized_w_path})
 
@@ -356,7 +372,7 @@ def main():
         for i in range(layer_num):
             best_layer_result = [0]
             acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_2.get_compute_result(i,
-                                                                                                                                                                                  targets)
+                                                                                                                                                                                  final_targets)
             if acc_top1 > best_layer_result[0]:
                 best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
                                      avg_total_conf, target_confidences, maximum_confidences, precision_list, i]

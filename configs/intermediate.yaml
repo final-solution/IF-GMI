@@ -29,7 +29,7 @@ candidates:
     truncation_cutoff: 8 # Truncation cutoff for StyleGAN.
 
 attack:
-  batch_size: 2 # Batch size per GPU.
+  batch_size: 5 # Batch size per GPU.
   num_epochs: 70 # Number of optimization iterations per batch.
   targets: 2 # Specify the targeted classes, either a single class index, a list of indices, or all.
   discriminator_loss_weight: 0.0 # Add discriminator weight.

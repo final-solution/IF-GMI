@@ -67,7 +67,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -172,6 +172,31 @@ def main():
                 num_workers=8,
                 gpu_devices=gpu_devices)
 
+    # Load Inception-v3 evaluation model and remove final layer: 加载评估模型用于距离计算
+    evaluation_model_dist = config.create_evaluation_model()
+    evaluation_model_dist.model.fc = torch.nn.Sequential()
+    evaluation_model_dist = torch.nn.DataParallel(evaluation_model_dist,
+                                                  device_ids=gpu_devices)
+    evaluation_model_dist.to(device)
+    evaluation_model_dist.eval()
+
+    evaluate_inception = DistanceEvaluation(
+        layer_num, evaluation_model_dist,
+        299,
+        config.attack_center_crop,
+        target_dataset, config.seed)
+
+    # Load FaceNet model for face recognition: 加载面部识别用的模型用以计算特征距离
+    facenet = InceptionResnetV1(pretrained='vggface2')
+    facenet = torch.nn.DataParallel(
+        facenet, device_ids=gpu_devices)
+    facenet.to(device)
+    facenet.eval()
+
+    evaluater_facenet = DistanceEvaluation(layer_num, facenet, 160,
+                                           config.attack_center_crop,
+                                           target_dataset, config.seed)
+
     # Create initial style vectors: 执行初始筛选
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
                                              device)
@@ -265,7 +290,7 @@ def main():
             imgs_optimized_unselected[k] = torch.cat(v, dim=0)
         for k, v in w_optimized_unselected.items():
             w_optimized_unselected[k] = torch.cat(v, dim=0)
-            w_optimized_unselected_all[k].append(torch.cat(v, dim=0))
+            w_optimized_unselected_all[k].append(w_optimized_unselected[k])
 
         torch.cuda.empty_cache()
         # del discriminator, synthesis
@@ -362,6 +387,32 @@ def main():
         except Exception:
             print(traceback.format_exc())
 
+        ####################################
+        #         Feature Distance         #
+        ####################################
+        try:
+            for layer in range(layer_num):
+                evaluate_inception.compute_dist(
+                    layer,
+                    final_imgs[layer],
+                    final_targets,
+                    batch_size=batch_size_single * 5,
+                    rtpt=rtpt)
+
+            # Compute feature distance only for facial images
+            if target_dataset in [
+                    'facescrub', 'celeba_identities', 'celeba_attributes'
+            ]:
+                for layer in range(layer_num):
+                    evaluater_facenet.compute_dist(
+                        layer,
+                        final_imgs[layer],
+                        final_targets,
+                        batch_size=batch_size_single * 5,
+                        rtpt=rtpt)
+        except Exception:
+            print(traceback.format_exc())
+
     # 处理最终结果
     for k in range(layer_num):
         w_optimized_unselected_all[k] = torch.cat(
@@ -381,8 +432,8 @@ def main():
         wandb.config.update({'w_path': optimized_w_path})
 
         # 记录acc相关结果
+        best_layer_result = [0]
         for i in range(layer_num):
-            best_layer_result = [0]
             acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.get_compute_result(i,
                                                                                                                                                                                 targets)
             if acc_top1 > best_layer_result[0]:
@@ -402,13 +453,13 @@ def main():
             pass
         best_layer = best_layer_result[-1]
         print(
-            f'\nUnfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
+            f'Unfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
 
         if config.final_selection:
             final_targets_all = torch.cat(final_targets_all, dim=0)
+            best_layer_result = [0]
             for i in range(layer_num):
-                best_layer_result = [0]
                 acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_selected.get_compute_result(i,
                                                                                                                                                                                              final_targets_all)
                 if acc_top1 > best_layer_result[0]:
@@ -428,102 +479,55 @@ def main():
                 pass
             best_layer = best_layer_result[-1]
             print(
-                f'\nFiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
+                f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
             )
-        
+
         # 记录fid和prcd相关结果
         for i in range(layer_num):
-            fid_score = fid_evaluation.get_fid(i)
+            # fid_score = fid_evaluation.get_fid(i)
             precision, recall, density, coverage = prcd.get_prcd(i)
             print(f'Metrics of layer {i}:')
-            print(
-                f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
-            )
+            # print(
+            #     f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
+            # )
             print(
                 f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
             )
 
-    exit()
-
-    ####################################
-    #         Feature Distance         #
-    ####################################
-    avg_dist_inception_list = []
-    avg_dist_facenet_list = []
-    try:
-        # Load Inception-v3 evaluation model and remove final layer: 加载评估模型
-        evaluation_model_dist = config.create_evaluation_model()
-        evaluation_model_dist.model.fc = torch.nn.Sequential()
-        evaluation_model_dist = torch.nn.DataParallel(evaluation_model_dist,
-                                                      device_ids=gpu_devices)
-        evaluation_model_dist.to(device)
-        evaluation_model_dist.eval()
-
-        # Compute average feature distance on Inception-v3: 计算评估模型上的平均特征距离
-        evaluate_inception = DistanceEvaluation(evaluation_model_dist,
-                                                synthesis, 299,
-                                                config.attack_center_crop,
-                                                target_dataset, config.seed)
+        # 记录两个特征距离
         mean_distances_lists = []
         for i in range(layer_num):
-            avg_dist_inception, mean_distances_list = evaluate_inception.compute_dist(
-                final_w,
-                final_imgs[i],
-                final_targets,
-                batch_size=batch_size_single * 5,
-                rtpt=rtpt)
-            avg_dist_inception_list.append(avg_dist_inception)
+            avg_dist_inception, mean_distances_list = evaluate_inception.get_eval_dist(
+                i)
             mean_distances_lists.append(mean_distances_list)
             print(f'Mean Distance on Inception-v3 and layer {i}: ',
                   avg_dist_inception.cpu().item())
+        try:
+            filename_distance = write_precision_list(
+                f'{result_path}/distance_inceptionv3_list_filtered_{run_id}',
+                mean_distances_lists[best_layer])
+            wandb.save(filename_distance, policy='now')
+        except:
+            pass
 
         # 记录结果
-        if config.logging:
-            try:
-                filename_distance = write_precision_list(
-                    f'{result_path}/distance_inceptionv3_list_filtered_{run_id}',
-                    mean_distances_lists[best_layer])
-                wandb.save(filename_distance, policy='now')
-            except:
-                pass
+        mean_distances_lists = []
+        for i in range(layer_num):
+            avg_dist_facenet, mean_distances_list = evaluater_facenet.get_eval_dist(
+                i)
+            mean_distances_lists.append(mean_distances_list)
+            print(f'Mean Distance on FaceNet and layer {i}: ',
+                  avg_dist_facenet.cpu().item())
 
-        # Compute feature distance only for facial images
-        if target_dataset in [
-                'facescrub', 'celeba_identities', 'celeba_attributes'
-        ]:
-            # Load FaceNet model for face recognition: 加载面部识别用的模型
-            facenet = InceptionResnetV1(pretrained='vggface2')
-            facenet = torch.nn.DataParallel(facenet, device_ids=gpu_devices)
-            facenet.to(device)
-            facenet.eval()
+        try:
+            filename_distance = write_precision_list(
+                f'{result_path}/distance_facenet_list_filtered_{run_id}',
+                mean_distances_lists[best_layer])
+            wandb.save(filename_distance, policy='now')
+        except:
+            pass
 
-            # Compute average feature distance on facenet: 计算面部识别模型上的平均特征距离
-            evaluater_facenet = DistanceEvaluation(facenet, synthesis, 160,
-                                                   config.attack_center_crop,
-                                                   target_dataset, config.seed)
-
-            mean_distances_lists = []
-            for i in range(layer_num):
-                avg_dist_facenet, mean_distances_list = evaluater_facenet.compute_dist(
-                    final_w,
-                    final_imgs[i],
-                    final_targets,
-                    batch_size=batch_size_single * 8,
-                    rtpt=rtpt)
-                avg_dist_facenet_list.append(avg_dist_facenet)
-                mean_distances_lists.append(mean_distances_list)
-                print(
-                    f'Mean Distance on FaceNet and layer {i}', avg_dist_facenet.cpu().item())
-
-            # 记录结果
-            if config.logging:
-                filename_distance = write_precision_list(
-                    f'{result_path}/distance_facenet_list_filtered_{run_id}',
-                    mean_distances_lists[best_layer])
-                wandb.save(filename_distance, policy='now')
-    except Exception:
-        print(traceback.format_exc())
-
+    exit()
     ####################################
     #          Finish Logging          #
     ####################################

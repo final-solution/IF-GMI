@@ -67,17 +67,14 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
     # Define and parse attack arguments: 参数管理
     parser = create_parser()
     config, args = parse_arguments(parser)
-    
     layer_num = len(config.intermediate['steps'])
-    
-    
 
     # Set seeds: 随机种子
     torch.manual_seed(config.seed)
@@ -131,6 +128,11 @@ def main():
     # discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
     discriminator = None
 
+    # Load basic attack parameters: 加载基础攻击参数
+    batch_size_single = config.attack['batch_size']
+    batch_size = config.attack['batch_size'] * len(gpu_devices)
+    targets = config.create_target_vector()
+
     # 加载评价模型Incv3
     evaluation_model = config.create_evaluation_model()
     evaluation_model = torch.nn.DataParallel(evaluation_model)
@@ -143,11 +145,32 @@ def main():
                                                           layer_num=layer_num,
                                                           device=device)
 
-    # Load basic attack parameters: 加载基础攻击参数
-    # num_epochs = config.attack['num_epochs']
-    batch_size_single = config.attack['batch_size']
-    batch_size = config.attack['batch_size'] * len(gpu_devices)
-    targets = config.create_target_vector()
+    # set transformations: 设置图片变换方式
+    crop_size = config.attack_center_crop
+    target_transform = T.Compose([
+        T.ToTensor(),
+        T.Resize((299, 299), antialias=True),
+        T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+
+    # 加载FID、PRCD计算所需模型
+    full_training_dataset = create_target_dataset(target_dataset,
+                                                  target_transform)
+    fid_evaluation = FID_Score(layer_num,
+                               device=device,
+                               crop_size=crop_size,
+                               batch_size=batch_size * 3,
+                               dims=2048,
+                               num_workers=8,
+                               gpu_devices=gpu_devices)
+    prcd = PRCD(layer_num,
+                device=device,
+                crop_size=crop_size,
+                generator=synthesis,
+                batch_size=batch_size * 3,
+                dims=2048,
+                num_workers=8,
+                gpu_devices=gpu_devices)
 
     # Create initial style vectors: 执行初始筛选
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
@@ -155,27 +178,17 @@ def main():
     del G
 
     # Initialize wandb logging: 使用wandb的日志记录操作
-    
+
     result_path = config.path
-    # if config.logging:
-        
-        
     if config.logging:
         optimizer = config.create_optimizer(params=[w])
-        wandb_run, save_config= init_wandb_logging(optimizer, target_model_name, config,
-                                       args)
-        
+        wandb_run, save_config = init_wandb_logging(optimizer, target_model_name, config,
+                                                    args)
         run_id = wandb_run.id
-        
         result_path = os.path.join(config.path, run_id)
-        
         Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
-        
         save_dict_to_yaml(
             save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
-        
-        
-        
         tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
 
     # Print attack configuration: 打印攻击参数设置
@@ -219,7 +232,7 @@ def main():
     # Collect results: 收集结果
     w_optimized_unselected_all = {i: [] for i in range(layer_num)}
     final_w_all = {i: [] for i in range(layer_num)}
-    final_targets_all = {i: [] for i in range(layer_num)}
+    final_targets_all = []
 
     # 每个class分别迭代计算，减少内存消耗
     for idx, target in enumerate(config.targets):
@@ -264,7 +277,6 @@ def main():
 
         # Filter results: 执行最终阶段筛选
         final_imgs = {}
-        final_targets = {}
         target_list = targets[idx*num_candidates:(idx+1)*num_candidates]
         if config.final_selection:
             print(
@@ -272,7 +284,7 @@ def main():
                 f'images per target using {config.final_selection["approach"]} approach.'
             )
             for j in range(layer_num):
-                final_w, final_layer_targets, final_layer_imgs = perform_final_selection(
+                final_w, final_targets, final_layer_imgs = perform_final_selection(
                     w_optimized_unselected[j],
                     imgs_optimized_unselected[j],
                     config,
@@ -283,14 +295,12 @@ def main():
                     **config.final_selection,
                     rtpt=rtpt)
                 final_imgs[j] = final_layer_imgs
-                final_targets[j] = final_layer_targets
                 final_w_all[j].append(final_w)
-                final_targets_all[j].append(final_layer_targets)
             print(f'Selected a total of {final_w.shape[0]} final images ',
                   f'of target classes {set(final_targets.cpu().tolist())}.')
         else:
             final_targets, final_w, final_imgs = target_list, w_optimized_unselected, imgs_optimized_unselected
-
+        final_targets_all.append(final_targets)
         # del target_model
 
         ####################################
@@ -317,7 +327,7 @@ def main():
                     class_acc_evaluator_selected.compute_acc(
                         layer,
                         final_imgs[layer],
-                        final_targets[layer],
+                        final_targets,
                         config,
                         batch_size=batch_size * 2,
                         resize=299,
@@ -327,12 +337,36 @@ def main():
         except Exception:
             print(traceback.format_exc())
 
+        ####################################
+        #    FID Score and GAN Metrics     #
+        ####################################
+        try:
+            training_dataset = ClassSubset(
+                full_training_dataset,
+                target_classes=torch.unique(final_targets).cpu().tolist())
+            for layer in range(layer_num):
+                # create datasets: 创建待使用的数据集
+                attack_dataset = TensorDataset(
+                    final_imgs[layer], final_targets)
+                attack_dataset.targets = final_targets
+
+                # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
+                # fid_evaluation.set(training_dataset, attack_dataset)
+                # fid_evaluation.compute_fid(layer, rtpt)
+
+                # compute precision, recall, density, coverage: 计算指标
+                prcd.set(training_dataset, attack_dataset)
+                prcd.compute_metric(
+                    layer, num_classes=config.num_classes, k=3, rtpt=rtpt)
+
+        except Exception:
+            print(traceback.format_exc())
+
     # 处理最终结果
     for k in range(layer_num):
         w_optimized_unselected_all[k] = torch.cat(
             w_optimized_unselected_all[k], dim=0)
         final_w_all[k] = torch.cat(final_w_all[k], dim=0)
-        final_targets_all[k] = torch.cat(final_targets_all[k], dim=0)
 
     # Log optimized vectors: 记录优化得到的隐向量
     if config.logging:
@@ -340,13 +374,13 @@ def main():
         torch.save(w_optimized_unselected_all, optimized_w_path)
         wandb.save(optimized_w_path, policy='now')
 
-    # Log selected vectors: 记录选择结果
+        # Log selected vectors: 记录选择结果
         optimized_w_path_selected = f"{result_path}/optimized_w_selected_{run_id}.pt"
         torch.save(final_w_all, optimized_w_path_selected)
         wandb.save(optimized_w_path_selected, policy='now')
         wandb.config.update({'w_path': optimized_w_path})
 
-    # 记录acc相关结果
+        # 记录acc相关结果
         for i in range(layer_num):
             best_layer_result = [0]
             acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.get_compute_result(i,
@@ -371,92 +405,45 @@ def main():
             f'\nUnfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
 
-        for i in range(layer_num):
-            best_layer_result = [0]
-            acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_selected.get_compute_result(i,
-                                                                                                                                                                                         final_targets_all[i])
-            if acc_top1 > best_layer_result[0]:
-                best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
-                                     avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
+        if config.final_selection:
+            final_targets_all = torch.cat(final_targets_all, dim=0)
+            for i in range(layer_num):
+                best_layer_result = [0]
+                acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_selected.get_compute_result(i,
+                                                                                                                                                                                             final_targets_all)
+                if acc_top1 > best_layer_result[0]:
+                    best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
+                                         avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
+                print(
+                    f'\nFiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
+                    f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
+                )
+            try:
+                filename_precision = write_precision_list(
+                    f'{result_path}/precision_list_filtered_{run_id}',
+                    best_layer_result[-2]
+                )
+                wandb.save(filename_precision, policy='now')
+            except:
+                pass
+            best_layer = best_layer_result[-1]
             print(
-                f'\nFiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
-                f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
+                f'\nFiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
             )
-        try:
-            filename_precision = write_precision_list(
-                f'{result_path}/precision_list_filtered_{run_id}',
-                best_layer_result[-2]
+        
+        # 记录fid和prcd相关结果
+        for i in range(layer_num):
+            fid_score = fid_evaluation.get_fid(i)
+            precision, recall, density, coverage = prcd.get_prcd(i)
+            print(f'Metrics of layer {i}:')
+            print(
+                f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
             )
-            wandb.save(filename_precision, policy='now')
-        except:
-            pass
-        best_layer = best_layer_result[-1]
-        print(
-            f'\nFiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
-        )
+            print(
+                f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
+            )
 
     exit()
-
-    ####################################
-    #    FID Score and GAN Metrics     #
-    ####################################
-
-    fid_score = None
-    precision, recall = None, None
-    density, coverage = None, None
-    try:
-        # set transformations: 对图片进行变换
-        crop_size = config.attack_center_crop
-        target_transform = T.Compose([
-            T.ToTensor(),
-            T.Resize((299, 299), antialias=True),
-            T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
-        ])
-
-        # create datasets: 创建待使用的数据集
-        # attack_dataset = TensorDataset(final_w, final_targets)
-        # 10个类中FID也算不了，先设置为取最后一层的重建数据集
-        attack_dataset = TensorDataset(final_imgs[layer_num-1], final_targets)
-        attack_dataset.targets = final_targets
-        training_dataset = create_target_dataset(target_dataset,
-                                                 target_transform)
-        training_dataset = ClassSubset(
-            training_dataset,
-            target_classes=torch.unique(final_targets).cpu().tolist())
-
-        # compute FID score: 计算fid指标
-        fid_evaluation = FID_Score(training_dataset,
-                                   attack_dataset,
-                                   device=device,
-                                   crop_size=crop_size,
-                                   generator=synthesis,
-                                   batch_size=batch_size * 3,
-                                   dims=2048,
-                                   num_workers=8,
-                                   gpu_devices=gpu_devices)
-        fid_score = fid_evaluation.compute_fid(rtpt)
-        print(
-            f'FID score computed on {final_w.shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
-        )
-
-        # compute precision, recall, density, coverage: 计算指标
-        prdc = PRCD(training_dataset,
-                    attack_dataset,
-                    device=device,
-                    crop_size=crop_size,
-                    generator=synthesis,
-                    batch_size=batch_size * 3,
-                    dims=2048,
-                    num_workers=8,
-                    gpu_devices=gpu_devices)
-        precision, recall, density, coverage = prdc.compute_metric(
-            num_classes=config.num_classes, k=3, rtpt=rtpt)
-        print(
-            f' Precision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
-        )
-
-    except Exception:
-        print(traceback.format_exc())
 
     ####################################
     #         Feature Distance         #

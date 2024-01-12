@@ -23,15 +23,14 @@ IMAGE_EXTENSIONS = ('bmp', 'jpg', 'jpeg', 'pgm', 'png', 'ppm',
 
 
 class FID_Score:
-    def __init__(self, dataset_1, dataset_2, device, crop_size=None, generator=None, batch_size=128, dims=2048, num_workers=8, gpu_devices=[]):
-        self.dataset_1 = dataset_1
-        self.dataset_2 = dataset_2
+    def __init__(self,layer_num,device,crop_size=None, batch_size=128, dims=2048, num_workers=8, gpu_devices=[]):
         self.batch_size = batch_size
         self.dims = dims
         self.num_workers = num_workers
         self.device = device
-        self.generator = generator
         self.crop_size = crop_size
+        self.pred_arr_fake = {i:[] for i in range(layer_num)}
+        self.pred_arr_gt = []
 
         block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[self.dims]
         inception_model = InceptionV3([block_idx]).to(self.device)
@@ -41,16 +40,36 @@ class FID_Score:
         else:
             self.inception_model = inception_model
         self.inception_model.to(device)
-
-    def compute_fid(self, rtpt=None):
-        m1, s1 = self.compute_statistics(self.dataset_1, rtpt)
-        m2, s2 = self.compute_statistics(self.dataset_2, rtpt, type=2)
+    
+    def set(self, dataset_1, dataset_2):
+        self.dataset_1 = dataset_1
+        self.dataset_2 = dataset_2
+    
+    # 获取对应层下的fid
+    def get_fid(self, layer):
+        pred_arr_gt = torch.cat(self.pred_arr_gt, dim=0)
+        mu1 = np.mean(pred_arr_gt, axis=0)
+        sigma1 = np.cov(pred_arr_gt, rowvar=False)   
+        
+        pred_arr_fake = torch.cat(self.pred_arr_fake[layer], dim=0)
+        mu2 = np.mean(pred_arr_fake, axis=0)
+        sigma2 = np.cov(pred_arr_fake, rowvar=False)     
         fid_value = pytorch_fid.fid_score.calculate_frechet_distance(
-            m1, s1, m2, s2)
+            mu1, sigma1, mu2, sigma2)
         return fid_value
+        
+        
+    def compute_fid(self, layer, rtpt=None):
+        self.compute_statistics(self.dataset_1, rtpt)
+        self.compute_statistics(self.dataset_2, layer, rtpt, fake=True)
+        # m1, s1 = self.compute_statistics(self.dataset_1, rtpt)
+        # m2, s2 = self.compute_statistics(self.dataset_2, rtpt, True)
+        # fid_value = pytorch_fid.fid_score.calculate_frechet_distance(
+        #     m1, s1, m2, s2)
+        # return fid_value
 
     # 计算FID
-    def compute_statistics(self, dataset, rtpt=None, type=1):
+    def compute_statistics(self, dataset, layer=None, rtpt=None, fake=False):
         self.inception_model.eval()
         dataloader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=self.batch_size,
@@ -64,11 +83,8 @@ class FID_Score:
         for step, (x, y) in enumerate(dataloader):
             with torch.no_grad():
                 # 表示该数据集是重建图像数据集
-                if type == 2:
-                    # x = create_image(x, self.generator,
-                    #                  crop_size=self.crop_size, resize=299, batch_size=int(self.batch_size / 2))
+                if fake:
                     x = create_image(x, crop_size=self.crop_size, resize=299)
-
                 x = x.to(self.device)
                 pred = self.inception_model(x)[0]
             pred = pred.squeeze(3).squeeze(2).cpu().numpy()
@@ -78,7 +94,10 @@ class FID_Score:
             if rtpt:
                 rtpt.step(
                     subtitle=f'FID Score Computation step {step} of {max_iter}')
-
-        mu = np.mean(pred_arr, axis=0)
-        sigma = np.cov(pred_arr, rowvar=False)
-        return mu, sigma
+        if fake:
+            self.pred_arr_fake[layer].append(pred_arr)
+        else:
+            self.pred_arr_gt.append(pred_arr)
+        # mu = np.mean(pred_arr, axis=0)
+        # sigma = np.cov(pred_arr, rowvar=False)
+        # return mu, sigma

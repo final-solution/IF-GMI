@@ -60,9 +60,9 @@ class ClassificationAccuracy():
                 self.maximum_confidences[layer].append(
                     torch.max(confidences, dim=1)[0])
 
-            if rtpt:
-                rtpt.step(
-                    subtitle=f'Classification Evaluation step {step} of {max_iter}')
+                if rtpt:
+                    rtpt.step(
+                        subtitle=f'Classification Evaluation step {step} of {max_iter}')
 
     def get_compute_result(self, layer, targets):
         acc_top1 = self.acc_top1[layer].compute_metric()

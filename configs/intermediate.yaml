@@ -24,12 +24,12 @@ candidates:
     center_crop: 800 # Crop generated images.
     resize: 224 # Resize generated images (after cropping).
     horizontal_flip: true # Flip the generated images horizontally in 50% of the cases.
-    batch_size: 25 # Batch size during the sampling process (single GPU).
+    batch_size: 10 # Batch size during the sampling process (single GPU).
     truncation_psi: 0.5 # Truncation psi for StyleGAN.
     truncation_cutoff: 8 # Truncation cutoff for StyleGAN.
 
 attack:
-  batch_size: 5 # Batch size per GPU.
+  batch_size: 2 # Batch size per GPU.
   num_epochs: 70 # Number of optimization iterations per batch.
   targets: 2 # Specify the targeted classes, either a single class index, a list of indices, or all.
   discriminator_loss_weight: 0.0 # Add discriminator weight.

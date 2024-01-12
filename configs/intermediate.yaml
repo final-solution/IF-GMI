@@ -24,7 +24,7 @@ candidates:
     center_crop: 800 # Crop generated images.
     resize: 224 # Resize generated images (after cropping).
     horizontal_flip: true # Flip the generated images horizontally in 50% of the cases.
-    batch_size: 10 # Batch size during the sampling process (single GPU).
+    batch_size: 25 # Batch size during the sampling process (single GPU).
     truncation_psi: 0.5 # Truncation psi for StyleGAN.
     truncation_cutoff: 8 # Truncation cutoff for StyleGAN.
 
@@ -63,7 +63,7 @@ attack:
 intermediate:
   start: 0
   end: 8
-  steps: [70,10]
+  steps: [70,10,10]
   max_radius_mid_vecor: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
   max_radius_w: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
 

@@ -382,7 +382,7 @@ def main():
                 # compute precision, recall, density, coverage: 计算指标
                 prcd.set(training_dataset, attack_dataset)
                 prcd.compute_metric(
-                    layer, num_classes=config.num_classes, k=3, rtpt=rtpt)
+                    layer, set(final_targets.cpu().tolist())[0], k=3, rtpt=rtpt)
 
         except Exception:
             print(traceback.format_exc())

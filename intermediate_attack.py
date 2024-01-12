@@ -141,8 +141,8 @@ def main():
                                                  layer_num=layer_num,
                                                  device=device)
     class_acc_evaluator_selected = ClassificationAccuracy(evaluation_model,
-                                                   layer_num=layer_num,
-                                                   device=device)
+                                                          layer_num=layer_num,
+                                                          device=device)
 
     # Load basic attack parameters: 加载基础攻击参数
     # num_epochs = config.attack['num_epochs']
@@ -158,8 +158,8 @@ def main():
     # Initialize wandb logging: 使用wandb的日志记录操作
     if config.logging:
         optimizer = config.create_optimizer(params=[w])
-        wandb_run, save_config= init_wandb_logging(optimizer, target_model_name, config,
-                                       args)
+        wandb_run, save_config = init_wandb_logging(optimizer, target_model_name, config,
+                                                    args)
         save_dict_to_yaml(
             save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
         run_id = wandb_run.id
@@ -205,6 +205,7 @@ def main():
     # Collect results: 收集结果
     w_optimized_unselected_all = {i: [] for i in range(layer_num)}
     final_w_all = {i: [] for i in range(layer_num)}
+    final_targets_all = {i: [] for i in range(layer_num)}
 
     # 每个class分别迭代计算，减少内存消耗
     for idx, target in enumerate(config.targets):
@@ -249,6 +250,7 @@ def main():
 
         # Filter results: 执行最终阶段筛选
         final_imgs = {}
+        final_targets = {}
         target_list = targets[idx*num_candidates:(idx+1)*num_candidates]
         if config.final_selection:
             print(
@@ -256,7 +258,7 @@ def main():
                 f'images per target using {config.final_selection["approach"]} approach.'
             )
             for j in range(layer_num):
-                final_w, final_targets, final_layer_imgs = perform_final_selection(
+                final_w, final_layer_targets, final_layer_imgs = perform_final_selection(
                     w_optimized_unselected[j],
                     imgs_optimized_unselected[j],
                     config,
@@ -267,7 +269,9 @@ def main():
                     **config.final_selection,
                     rtpt=rtpt)
                 final_imgs[j] = final_layer_imgs
+                final_targets[j] = final_layer_targets
                 final_w_all[j].append(final_w)
+                final_targets_all[j].append(final_layer_targets)
             print(f'Selected a total of {final_w.shape[0]} final images ',
                   f'of target classes {set(final_targets.cpu().tolist())}.')
         else:
@@ -299,7 +303,7 @@ def main():
                     class_acc_evaluator_selected.compute_acc(
                         layer,
                         final_imgs[layer],
-                        final_targets,
+                        final_targets[layer],
                         config,
                         batch_size=batch_size * 2,
                         resize=299,
@@ -314,6 +318,7 @@ def main():
         w_optimized_unselected_all[k] = torch.cat(
             w_optimized_unselected_all[k], dim=0)
         final_w_all[k] = torch.cat(final_w_all[k], dim=0)
+        final_targets_all[k] = torch.cat(final_targets_all[k], dim=0)
 
     # Log optimized vectors: 记录优化得到的隐向量
     if config.logging:
@@ -352,11 +357,10 @@ def main():
             f'\nUnfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
 
-
         for i in range(layer_num):
             best_layer_result = [0]
             acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_selected.get_compute_result(i,
-                                                                                                                                                                                  targets)
+                                                                                                                                                                                         final_targets_all[i])
             if acc_top1 > best_layer_result[0]:
                 best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
                                      avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
@@ -376,7 +380,9 @@ def main():
         print(
             f'\nFiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
-        
+
+    exit()
+
     ####################################
     #    FID Score and GAN Metrics     #
     ####################################

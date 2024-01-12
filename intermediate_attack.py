@@ -67,18 +67,17 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
     # Define and parse attack arguments: 参数管理
     parser = create_parser()
     config, args = parse_arguments(parser)
-    result_path = config.path
+    
     layer_num = len(config.intermediate['steps'])
-    if config.logging:
-        Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
-        tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
+    
+    
 
     # Set seeds: 随机种子
     torch.manual_seed(config.seed)
@@ -156,13 +155,28 @@ def main():
     del G
 
     # Initialize wandb logging: 使用wandb的日志记录操作
+    
+    result_path = config.path
+    # if config.logging:
+        
+        
     if config.logging:
         optimizer = config.create_optimizer(params=[w])
-        wandb_run, save_config = init_wandb_logging(optimizer, target_model_name, config,
-                                                    args)
+        wandb_run, save_config= init_wandb_logging(optimizer, target_model_name, config,
+                                       args)
+        
+        run_id = wandb_run.id
+        
+        result_path = os.path.join(config.path, run_id)
+        
+        Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
+        
         save_dict_to_yaml(
             save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
-        run_id = wandb_run.id
+        
+        
+        
+        tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
 
     # Print attack configuration: 打印攻击参数设置
     print(

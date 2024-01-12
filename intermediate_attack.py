@@ -370,7 +370,7 @@ def main():
         for i in range(layer_num):
             best_layer_result = [0]
             acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_selected.get_compute_result(i,
-                                                                                                                                                                                  targets)
+                                                                                                                                                                                  final_targets)
             if acc_top1 > best_layer_result[0]:
                 best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
                                      avg_total_conf, target_confidences, maximum_confidences, precision_list, i]

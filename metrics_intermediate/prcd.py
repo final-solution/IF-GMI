@@ -49,11 +49,6 @@ class PRCD:
         return precision, recall, density, coverage
 
     def compute_metric(self, layer, cls, k=3, rtpt=None):
-        # precision_list = []
-        # recall_list = []
-        # density_list = []
-        # coverage_list = []
-        # for step, cls in enumerate(range(num_classes)):
         with torch.no_grad():
             embedding_fake = self.compute_embedding(
                 self.dataset_fake, cls, fake=True)
@@ -77,7 +72,6 @@ class PRCD:
                 dim=1)
             precision = (min_dist_fake_to_real <=
                             radius_real[nn_real]).float().mean()
-            # precision_list.append(precision.cpu().item())
 
             # Compute recall
             distances_real_to_fake = torch.cdist(
@@ -86,20 +80,17 @@ class PRCD:
                 dim=1)
             recall = (min_dist_real_to_fake <=
                         radius_fake[nn_fake]).float().mean()
-            # recall_list.append(recall.cpu().item())
 
             # Compute density
             num_samples = distances_fake_to_real.shape[0]
             sphere_counter = (distances_fake_to_real <= radius_real.repeat(
                 num_samples, 1)).float().sum(dim=0).mean()
             density = sphere_counter / k
-            # density_list.append(density.cpu().item())
 
             # Compute coverage
             num_neighbors = (distances_fake_to_real <= radius_real.repeat(
                 num_samples, 1)).float().sum(dim=0)
             coverage = (num_neighbors > 0).float().mean()
-            # coverage_list.append(coverage.cpu().item())
             # Update rtpt
             if rtpt:
                 rtpt.step(
@@ -120,7 +111,6 @@ class PRCD:
                                                  drop_last=False,
                                                  pin_memory=True,
                                                  num_workers=self.num_workers)
-        print('dataset size:',len(dataset))
         pred_arr = np.empty((len(dataset), self.dims))
         start_idx = 0
         max_iter = int(len(dataset) / self.batch_size)

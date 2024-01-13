@@ -166,13 +166,14 @@ class AttackConfigParser:
             break
 
         config = {
-            **self.attack, **self.intermediate, 'optimizer': self.optimizer,
+            **self.attack, **self.intermediate, 
+            'num_candidates': self.candidates['num_candidates'],
+            'optimizer': self.optimizer,
             'lr': lr,
             'use_scheduler': 'lr_scheduler' in self._config,
             'target_architecture': self.model.architecture,
             'target_extended': self.model.wandb_name,
-            'selection_method': self.final_selection['approach'],
-            'final_samples': self.final_selection['samples_per_target']
+            **self.final_selection
         }
         if 'lr_scheduler' in self._config:
             config['lr_scheduler'] = self.lr_scheduler

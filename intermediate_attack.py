@@ -382,7 +382,7 @@ def main():
                 # compute precision, recall, density, coverage: 计算指标
                 prcd.set(training_dataset, attack_dataset)
                 prcd.compute_metric(
-                    layer, set(final_targets.cpu().tolist())[0], k=3, rtpt=rtpt)
+                    layer, final_targets[0], k=3, rtpt=rtpt)
 
         except Exception:
             print(traceback.format_exc())
@@ -440,7 +440,7 @@ def main():
                 best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
                                      avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
             print(
-                f'\nUnfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
+                f'Unfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
                 f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
             )
         try:
@@ -466,7 +466,7 @@ def main():
                     best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
                                          avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
                 print(
-                    f'\nFiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
+                    f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
                     f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
                 )
             try:

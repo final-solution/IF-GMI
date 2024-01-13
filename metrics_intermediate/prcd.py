@@ -42,10 +42,10 @@ class PRCD:
         # density_list = torch.cat(self.density_list[layer], dim=0)
         # coverage_list = torch.cat(self.coverage_list[layer], dim=0)
 
-        precision = np.mean(self.precision_list)
-        recall = np.mean(self.recall_list)
-        density = np.mean(self.density_list)
-        coverage = np.mean(self.coverage_list)
+        precision = np.mean(self.precision_list[layer])
+        recall = np.mean(self.recall_list[layer])
+        density = np.mean(self.density_list[layer])
+        coverage = np.mean(self.coverage_list[layer])
         return precision, recall, density, coverage
 
     def compute_metric(self, layer, cls, k=3, rtpt=None):
@@ -126,8 +126,6 @@ class PRCD:
         for step, (x, y) in enumerate(dataloader):
             with torch.no_grad():
                 if fake:
-                    # x = create_image(x, self.generator,
-                    #                  crop_size=self.crop_size, resize=299, batch_size=int(self.batch_size / 2))
                     x = create_image(x, crop_size=self.crop_size, resize=299)
 
                 x = x.to(self.device)

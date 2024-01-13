@@ -71,7 +71,6 @@ class DistanceEvaluation():
         self.model.eval()
         self.model.to(self.device)
         target_values = set(targets.cpu().tolist())
-        smallest_distances = []
         for step, target in enumerate(target_values):
             mask = torch.where(targets == target, True, False)
             images_masked = images[mask]
@@ -103,15 +102,13 @@ class DistanceEvaluation():
                                     p=2).cpu()
             distances = distances**2
             distances, _ = torch.min(distances, dim=1)
-            smallest_distances.append(distances.cpu())
+            self.smallest_distances[layer].append(distances.cpu())
             self.mean_distances_list[layer].append(
                 [target, distances.cpu().mean().item()])
 
             if rtpt:
                 rtpt.step(
                     subtitle=f'Distance Evaluation step {step} of {len(target_values)}')
-
-        self.smallest_distances[layer].append(smallest_distances)
 
     def find_closest_training_sample(self, imgs, targets, batch_size=64):
         self.model.eval()

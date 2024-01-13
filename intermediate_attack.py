@@ -66,7 +66,7 @@ def main():
 
     now_time = time.strftime('%Y%m%d_%H%M', time.localtime(time.time()))
     init_mem = psutil.virtual_memory().free
-    min_mem = init_mem.free
+    min_mem = init_mem
     print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
 
     # Set devices: 设备驱动

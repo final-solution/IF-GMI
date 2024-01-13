@@ -6,6 +6,7 @@ import os
 import random
 import traceback
 import yaml
+import psutil
 from collections import Counter
 from copy import deepcopy
 from pathlib import Path
@@ -64,6 +65,9 @@ def main():
     start_time = time.perf_counter()
 
     now_time = time.strftime('%Y%m%d_%H%M', time.localtime(time.time()))
+    init_mem = psutil.virtual_memory().free
+    min_mem = init_mem.free
+    print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
@@ -247,6 +251,9 @@ def main():
 
     # Create attack transformations: 用到的数据增强方式
     attack_transformations = config.create_attack_transformations()
+    now_mem = psutil.virtual_memory().free
+    print(f'攻击准备后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+    min_mem = min(now_mem, min_mem)
 
     ####################################
     #         Attack Iteration         #
@@ -263,6 +270,10 @@ def main():
     for idx, target in enumerate(config.targets):
         num_candidates = config.candidates['num_candidates']
         optimization.flush_imgs()
+        
+        now_mem = psutil.virtual_memory().free
+        print(f'第{idx}轮攻击前的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        min_mem = min(now_mem, min_mem)
 
         # Prepare batches for attack：准备攻击的batch
         for i in range(math.ceil(num_candidates / batch_size)):
@@ -328,6 +339,10 @@ def main():
         final_targets_all.append(final_targets)
         # del target_model
 
+        now_mem = psutil.virtual_memory().free
+        print(f'第{idx}轮攻击后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        min_mem = min(now_mem, min_mem)
+        
         ####################################
         #         Attack Accuracy          #
         ####################################
@@ -412,6 +427,12 @@ def main():
                         rtpt=rtpt)
         except Exception:
             print(traceback.format_exc())
+        
+        now_mem = psutil.virtual_memory().free
+        print(f'第{idx}轮攻击后，计算各指标后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        min_mem = min(now_mem, min_mem)
+    
+    print(f'最多使用内存:{((init_mem-min_mem) / (1024**3)):.4f}GB')
 
     # 处理最终结果
     for k in range(layer_num):

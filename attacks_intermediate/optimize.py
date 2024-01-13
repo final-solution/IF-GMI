@@ -38,7 +38,6 @@ class Optimization():
             start_layer = i + self.config.intermediate['start']
             if i > self.config.intermediate['end']:
                 raise Exception('Attemping to go after end layer')
-            print(f'w shape {w_batch.shape}')
             imgs, w_batch = self.intermediate(
                 w_batch, start_layer, targets_batch, steps, i)
             self.intermediate_imgs[i].append(imgs.detach().cpu())

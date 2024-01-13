@@ -112,7 +112,7 @@ class PRCD:
 
     def compute_embedding(self, dataset, cls=None, fake=False):
         self.inception_model.eval()
-        if cls:
+        if cls is not None:
             dataset = SingleClassSubset(dataset, cls)
         dataloader = torch.utils.data.DataLoader(dataset,
                                                  batch_size=self.batch_size,
@@ -120,6 +120,7 @@ class PRCD:
                                                  drop_last=False,
                                                  pin_memory=True,
                                                  num_workers=self.num_workers)
+        print('dataset size:',len(dataset))
         pred_arr = np.empty((len(dataset), self.dims))
         start_idx = 0
         max_iter = int(len(dataset) / self.batch_size)

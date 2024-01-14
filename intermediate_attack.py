@@ -71,7 +71,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '1'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -175,6 +175,14 @@ def main():
                 dims=2048,
                 num_workers=8,
                 gpu_devices=gpu_devices)
+    prcd_uf = PRCD(layer_num,
+                device=device,
+                crop_size=crop_size,
+                generator=synthesis,
+                batch_size=batch_size * 3,
+                dims=2048,
+                num_workers=8,
+                gpu_devices=gpu_devices)
 
     # Load Inception-v3 evaluation model and remove final layer: 加载评估模型用于距离计算
     evaluation_model_dist = config.create_evaluation_model()
@@ -189,6 +197,11 @@ def main():
         299,
         config.attack_center_crop,
         target_dataset, config.seed)
+    evaluate_inception_uf = DistanceEvaluation(
+        layer_num, evaluation_model_dist,
+        299,
+        config.attack_center_crop,
+        target_dataset, config.seed)
 
     # Load FaceNet model for face recognition: 加载面部识别用的模型用以计算特征距离
     facenet = InceptionResnetV1(pretrained='vggface2')
@@ -198,6 +211,9 @@ def main():
     facenet.eval()
 
     evaluater_facenet = DistanceEvaluation(layer_num, facenet, 160,
+                                           config.attack_center_crop,
+                                           target_dataset, config.seed)
+    evaluater_facenet_uf = DistanceEvaluation(layer_num, facenet, 160,
                                            config.attack_center_crop,
                                            target_dataset, config.seed)
 
@@ -395,9 +411,13 @@ def main():
                 # fid_evaluation.compute_fid(layer, rtpt)
 
                 # compute precision, recall, density, coverage: 计算指标
-                prcd.set(training_dataset, attack_dataset)
-                prcd.compute_metric(
-                    layer, int(final_targets[0]), k=3, rtpt=rtpt)
+                prcd_uf.set(training_dataset,attack_dataset)
+                prcd_uf.compute_metric(
+                        layer, int(target_list[0]), k=3, rtpt=rtpt)
+                if config.final_selection:
+                    prcd.set(training_dataset, attack_dataset)
+                    prcd.compute_metric(
+                        layer, int(final_targets[0]), k=3, rtpt=rtpt)
 
         except Exception:
             print(traceback.format_exc())
@@ -407,24 +427,39 @@ def main():
         ####################################
         try:
             for layer in range(layer_num):
-                evaluate_inception.compute_dist(
+                evaluate_inception_uf.compute_dist(
                     layer,
-                    final_imgs[layer],
-                    final_targets,
+                    imgs_optimized_unselected[layer],
+                    target_list,
                     batch_size=batch_size_single * 5,
                     rtpt=rtpt)
-
-            # Compute feature distance only for facial images
-            if target_dataset in [
-                    'facescrub', 'celeba_identities', 'celeba_attributes'
-            ]:
-                for layer in range(layer_num):
-                    evaluater_facenet.compute_dist(
+                if config.final_selection:
+                    evaluate_inception.compute_dist(
                         layer,
                         final_imgs[layer],
                         final_targets,
                         batch_size=batch_size_single * 5,
                         rtpt=rtpt)
+                
+            # Compute feature distance only for facial images
+            if target_dataset in [
+                    'facescrub', 'celeba_identities', 'celeba_attributes'
+            ]:
+                for layer in range(layer_num):
+                    evaluater_facenet_uf.compute_dist(
+                        layer,
+                        final_imgs[layer],
+                        final_targets,
+                        batch_size=batch_size_single * 5,
+                        rtpt=rtpt)
+                    if config.final_selection:
+                        evaluater_facenet.compute_dist(
+                            layer,
+                            final_imgs[layer],
+                            final_targets,
+                            batch_size=batch_size_single * 5,
+                            rtpt=rtpt)
+                    
         except Exception:
             print(traceback.format_exc())
         
@@ -476,7 +511,6 @@ def main():
         print(
             f'Unfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
-
         if config.final_selection:
             final_targets_all = torch.cat(final_targets_all, dim=0)
             best_layer_result = [0]
@@ -502,51 +536,92 @@ def main():
             print(
                 f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
             )
-
+        print('\n')
+        
         # 记录fid和prcd相关结果
         for i in range(layer_num):
             # fid_score = fid_evaluation.get_fid(i)
-            precision, recall, density, coverage = prcd.get_prcd(i)
-            print(f'Metrics of layer {i}:')
+            precision, recall, density, coverage = prcd_uf.get_prcd(i)
+            print(f'Unfiltered metrics of layer {i}:')
             # print(
             #     f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
             # )
             print(
                 f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
             )
+        if config.final_selection:
+            print('\n')
+            for i in range(layer_num):
+                # fid_score = fid_evaluation.get_fid(i)
+                precision, recall, density, coverage = prcd.get_prcd(i)
+                print(f'Fiiltered metrics of layer {i}:')
+                # print(
+                #     f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
+                # )
+                print(
+                    f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
+                )
 
         # 记录两个特征距离
         mean_distances_lists = []
         for i in range(layer_num):
-            avg_dist_inception, mean_distances_list = evaluate_inception.get_eval_dist(
+            avg_dist_inception, mean_distances_list = evaluate_inception_uf.get_eval_dist(
                 i)
             mean_distances_lists.append(mean_distances_list)
-            print(f'Mean Distance on Inception-v3 and layer {i}: ',
+            print(f'Unfiltered mean Distance on Inception-v3 and layer {i}: ',
                   avg_dist_inception.cpu().item())
         try:
             filename_distance = write_precision_list(
-                f'{result_path}/distance_inceptionv3_list_filtered_{run_id}',
+                f'{result_path}/distance_inceptionv3_list_unfiltered_{run_id}',
                 mean_distances_lists[best_layer])
             wandb.save(filename_distance, policy='now')
         except:
             pass
-
-        # 记录结果
         mean_distances_lists = []
         for i in range(layer_num):
             avg_dist_facenet, mean_distances_list = evaluater_facenet.get_eval_dist(
                 i)
             mean_distances_lists.append(mean_distances_list)
-            print(f'Mean Distance on FaceNet and layer {i}: ',
+            print(f'Unfiltered mean Distance on FaceNet and layer {i}: ',
                   avg_dist_facenet.cpu().item())
-
         try:
             filename_distance = write_precision_list(
-                f'{result_path}/distance_facenet_list_filtered_{run_id}',
+                f'{result_path}/distance_facenet_list_unfiltered_{run_id}',
                 mean_distances_lists[best_layer])
             wandb.save(filename_distance, policy='now')
         except:
             pass
+        
+        if config.final_selection:
+            mean_distances_lists = []
+            for i in range(layer_num):
+                avg_dist_inception, mean_distances_list = evaluate_inception.get_eval_dist(
+                    i)
+                mean_distances_lists.append(mean_distances_list)
+                print(f'Mean Distance on Inception-v3 and layer {i}: ',
+                    avg_dist_inception.cpu().item())
+            try:
+                filename_distance = write_precision_list(
+                    f'{result_path}/distance_inceptionv3_list_filtered_{run_id}',
+                    mean_distances_lists[best_layer])
+                wandb.save(filename_distance, policy='now')
+            except:
+                pass
+            mean_distances_lists = []
+            for i in range(layer_num):
+                avg_dist_facenet, mean_distances_list = evaluater_facenet.get_eval_dist(
+                    i)
+                mean_distances_lists.append(mean_distances_list)
+                print(f'Mean Distance on FaceNet and layer {i}: ',
+                    avg_dist_facenet.cpu().item())
+
+            try:
+                filename_distance = write_precision_list(
+                    f'{result_path}/distance_facenet_list_filtered_{run_id}',
+                    mean_distances_lists[best_layer])
+                wandb.save(filename_distance, policy='now')
+            except:
+                pass
 
     exit()
     ####################################

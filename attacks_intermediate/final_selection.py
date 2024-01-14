@@ -25,7 +25,6 @@ def scores_by_transform(imgs,
 
 def perform_final_selection(w,
                             images,
-                            # generator,
                             config,
                             targets,
                             target_model,

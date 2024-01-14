@@ -47,7 +47,8 @@ class AttackConfigParser:
             config = self._config['augmented_models']
             model = Classifier(num_classes=config['num_classes'],
                                architecture=config['architecture'][index])
-            model.load_state_dict(torch.load(config['weights'][index])['state_dict'])
+            model.load_state_dict(torch.load(
+                config['weights'][index])['state_dict'])
             model.wandb_name = None
         else:
             raise RuntimeError('No augmented model stated in the config file.')
@@ -165,13 +166,14 @@ class AttackConfigParser:
             break
 
         config = {
-            **self.attack, 'optimizer': self.optimizer,
+            **self.attack, **self.intermediate, 
+            'num_candidates': self.candidates['num_candidates'],
+            'optimizer': self.optimizer,
             'lr': lr,
             'use_scheduler': 'lr_scheduler' in self._config,
             'target_architecture': self.model.architecture,
             'target_extended': self.model.wandb_name,
-            'selection_method': self.final_selection['approach'],
-            'final_samples': self.final_selection['samples_per_target']
+            **self.final_selection
         }
         if 'lr_scheduler' in self._config:
             config['lr_scheduler'] = self.lr_scheduler
@@ -216,6 +218,10 @@ class AttackConfigParser:
         return self._config['attack']
 
     @property
+    def targets(self):
+        return self._config['attack']['targets']
+
+    @property
     def wandb(self):
         return self._config['wandb']
 
@@ -226,7 +232,7 @@ class AttackConfigParser:
     @property
     def lr_scheduler(self):
         return self._config['attack']['lr_scheduler']
-    
+
     @property
     def intermediate(self):
         if 'intermediate' in self._config:
@@ -248,7 +254,7 @@ class AttackConfigParser:
     @property
     def seed(self):
         return self._config['seed']
-    
+
     @property
     def path(self):
         return self._config['result_path']

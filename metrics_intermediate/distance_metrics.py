@@ -12,7 +12,7 @@ from utils_intermediate.stylegan import create_image
 
 class DistanceEvaluation():
 
-    def __init__(self, model, generator, img_size, center_crop_size, dataset,
+    def __init__(self, layer_num, model, img_size, center_crop_size, dataset,
                  seed):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.dataset_name = dataset
@@ -21,7 +21,8 @@ class DistanceEvaluation():
         self.img_size = img_size
         self.seed = seed
         self.train_set = self.prepare_dataset()
-        self.generator = generator
+        self.smallest_distances = {i: [] for i in range(layer_num)}
+        self.mean_distances_list = {i: [['target', 'mean_dist']] for i in range(layer_num)}
 
     def prepare_dataset(self):
         # Build the datasets
@@ -62,15 +63,16 @@ class DistanceEvaluation():
 
         return train_set
 
-    def compute_dist(self, w, images, targets, batch_size=64, rtpt=None):
+    def get_eval_dist(self, layer):
+        smallest_distances = torch.cat(self.smallest_distances[layer], dim=0)
+        return smallest_distances.mean(), self.mean_distances_list[layer]
+
+    def compute_dist(self, layer, images, targets, batch_size=64, rtpt=None):
         self.model.eval()
         self.model.to(self.device)
         target_values = set(targets.cpu().tolist())
-        smallest_distances = []
-        mean_distances_list = [['target', 'mean_dist']]
         for step, target in enumerate(target_values):
             mask = torch.where(targets == target, True, False)
-            # w_masked = w[mask]
             images_masked = images[mask]
             target_subset = SingleClassSubset(self.train_set,
                                               target_class=target)
@@ -87,13 +89,6 @@ class DistanceEvaluation():
                                     batch_size,
                                     shuffle=False):
                 with torch.no_grad():
-                    # w_batch = w_batch[0].to(self.device)
-                    # imgs = create_image(w_batch,
-                    #                     self.generator,
-                    #                     crop_size=self.center_crop_size,
-                    #                     resize=(self.img_size, self.img_size),
-                    #                     device=self.device,
-                    #                     batch_size=batch_size)
                     image = image[0]
                     imgs = create_image(image, crop_size=self.center_crop_size, resize=(
                         self.img_size, self.img_size))
@@ -107,15 +102,13 @@ class DistanceEvaluation():
                                     p=2).cpu()
             distances = distances**2
             distances, _ = torch.min(distances, dim=1)
-            smallest_distances.append(distances.cpu())
-            mean_distances_list.append([target, distances.cpu().mean().item()])
+            self.smallest_distances[layer].append(distances.cpu())
+            self.mean_distances_list[layer].append(
+                [target, distances.cpu().mean().item()])
 
             if rtpt:
                 rtpt.step(
                     subtitle=f'Distance Evaluation step {step} of {len(target_values)}')
-
-        smallest_distances = torch.cat(smallest_distances, dim=0)
-        return smallest_distances.mean(), mean_distances_list
 
     def find_closest_training_sample(self, imgs, targets, batch_size=64):
         self.model.eval()

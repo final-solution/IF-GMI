@@ -464,7 +464,7 @@ def main():
             print(traceback.format_exc())
         
         now_mem = psutil.virtual_memory().free
-        print(f'第{idx}轮攻击后，计算各指标后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        print(f'第{idx}轮攻击后,计算各指标后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
         min_mem = min(now_mem, min_mem)
     
     print(f'最多使用内存:{((init_mem-min_mem) / (1024**3)):.4f}GB')

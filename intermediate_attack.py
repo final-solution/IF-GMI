@@ -557,18 +557,17 @@ def main():
                 f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
             )
         if config.final_selection:
-            print('\n')
             for i in range(layer_num):
                 # fid_score = fid_evaluation.get_fid(i)
                 precision, recall, density, coverage = prcd.get_prcd(i)
-                print(f'Fiiltered metrics of layer {i}:')
+                print(f'Filtered metrics of layer {i}:')
                 # print(
                 #     f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
                 # )
                 print(
                     f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
                 )
-
+        print('\n')
         # 记录两个特征距离
         mean_distances_lists = []
         for i in range(layer_num):

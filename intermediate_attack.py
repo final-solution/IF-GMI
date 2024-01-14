@@ -396,22 +396,29 @@ def main():
         ####################################
         #    FID Score and GAN Metrics     #
         ####################################
+        target_list = target_list.cpu()
         try:
             training_dataset = ClassSubset(
                 full_training_dataset,
                 target_classes=torch.unique(final_targets).cpu().tolist())
+            training_dataset_uf = ClassSubset(
+                full_training_dataset,
+                target_classes=torch.unique(target_list).cpu().tolist())
             for layer in range(layer_num):
                 # create datasets: 创建待使用的数据集
                 attack_dataset = TensorDataset(
                     final_imgs[layer], final_targets)
                 attack_dataset.targets = final_targets
+                attack_dataset_uf = TensorDataset(
+                    imgs_optimized_unselected[layer], target_list)
+                attack_dataset_uf.targets = target_list
 
                 # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
                 # fid_evaluation.set(training_dataset, attack_dataset)
                 # fid_evaluation.compute_fid(layer, rtpt)
 
                 # compute precision, recall, density, coverage: 计算指标
-                prcd_uf.set(training_dataset,attack_dataset)
+                prcd_uf.set(training_dataset_uf,attack_dataset_uf)
                 prcd_uf.compute_metric(
                         layer, int(target_list[0]), k=3, rtpt=rtpt)
                 if config.final_selection:
@@ -448,8 +455,8 @@ def main():
                 for layer in range(layer_num):
                     evaluater_facenet_uf.compute_dist(
                         layer,
-                        final_imgs[layer],
-                        final_targets,
+                        imgs_optimized_unselected[layer],
+                        target_list,
                         batch_size=batch_size_single * 5,
                         rtpt=rtpt)
                     if config.final_selection:

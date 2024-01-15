@@ -71,7 +71,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -585,7 +585,7 @@ def main():
             pass
         mean_distances_lists = []
         for i in range(layer_num):
-            avg_dist_facenet, mean_distances_list = evaluater_facenet.get_eval_dist(
+            avg_dist_facenet, mean_distances_list = evaluater_facenet_uf.get_eval_dist(
                 i)
             mean_distances_lists.append(mean_distances_list)
             print(f'Unfiltered mean Distance on FaceNet and layer {i}: ',
@@ -629,6 +629,9 @@ def main():
             except:
                 pass
 
+    end_time = time.perf_counter()
+    with open('time.txt', 'w') as file:
+        file.write(f'运行时间：{end_time-start_time}秒')            
     exit()
     ####################################
     #          Finish Logging          #
@@ -713,10 +716,6 @@ def main():
         final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
                             acc_top5, avg_dist_facenet, avg_dist_inception,
                             fid_score, precision, recall, density, coverage)
-
-    end_time = time.perf_counter()
-    with open('time.txt', 'w') as file:
-        file.write(f'运行时间：{end_time-start_time}秒')
 
 
 def create_parser():

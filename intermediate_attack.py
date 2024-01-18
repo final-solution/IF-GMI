@@ -1,4 +1,3 @@
-import sys
 import argparse
 import csv
 import math
@@ -25,6 +24,7 @@ from datasets.custom_subset import ClassSubset
 from metrics_intermediate.classification_acc import ClassificationAccuracy
 from metrics_intermediate.fid_score import FID_Score
 from metrics_intermediate.prcd import PRCD
+from utils_intermediate.logger import Tee
 from utils_intermediate.attack_config_parser import AttackConfigParser
 from utils_intermediate.datasets import (create_target_dataset, get_facescrub_idx_to_class,
                                          get_stanford_dogs_idx_to_class)
@@ -32,29 +32,6 @@ from utils_intermediate.stylegan import create_image, load_discrimator, load_gen
 from utils_intermediate.wandb import *
 
 os.environ["WANDB_MODE"] = "offline"
-
-
-class Tee(object):
-    """A workaround method to print in console and write to log file
-    """
-
-    def __init__(self, name, mode):
-        self.file = open(name, mode)
-        self.stdout = sys.stdout
-        sys.stdout = self
-
-    def __del__(self):
-        sys.stdout = self.stdout
-        self.file.close()
-
-    def write(self, data):
-        if not '...' in data:
-            self.file.write(data)
-        self.stdout.write(data)
-
-    def flush(self):
-        self.file.flush()
-
 
 def main():
     ####################################
@@ -71,7 +48,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -99,16 +76,19 @@ def main():
                 return key
 
         idx_to_class = KeyDict()
+    print('target dataset: ', config.dataset.lower())
 
     # Load pre-trained StyleGan2 components: 加载预训练GAN
     G = load_generator(config.stylegan_model)
     # D = load_discrimator(config.stylegan_model)
     num_ws = G.num_ws
+    print('使用的GAN路径: ', config.stylegan_model)
 
     # Load target model and set dataset: 加载目标模型与数据集
-    target_model = config.create_target_model()
+    target_model, name= config.create_target_model()
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset()
+    print('target model: ', name)
 
     # Load augmented models: 加载增强模型，用于克服过拟合
     aug_num = config.attack['augmentation_num']
@@ -138,10 +118,11 @@ def main():
     targets = config.create_target_vector()
 
     # 加载评价模型Incv3
-    evaluation_model = config.create_evaluation_model()
+    evaluation_model, name = config.create_evaluation_model()
     evaluation_model = torch.nn.DataParallel(evaluation_model)
     evaluation_model.to(device)
     evaluation_model.eval()
+    print('evaluation model: ', name)
     class_acc_evaluator = ClassificationAccuracy(evaluation_model,
                                                  layer_num=layer_num,
                                                  device=device)
@@ -223,7 +204,6 @@ def main():
     del G
 
     # Initialize wandb logging: 使用wandb的日志记录操作
-
     result_path = config.path
     if config.logging:
         optimizer = config.create_optimizer(params=[w])
@@ -353,7 +333,6 @@ def main():
         else:
             final_targets, final_w, final_imgs = target_list, w_optimized_unselected, imgs_optimized_unselected
         final_targets_all.append(final_targets)
-        # del target_model
 
         now_mem = psutil.virtual_memory().free
         print(f'第{idx}轮攻击后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
@@ -388,7 +367,6 @@ def main():
                         batch_size=batch_size * 2,
                         resize=299,
                         rtpt=rtpt)
-            # del evaluation_model
 
         except Exception:
             print(traceback.format_exc())
@@ -482,7 +460,10 @@ def main():
             w_optimized_unselected_all[k], dim=0)
         final_w_all[k] = torch.cat(final_w_all[k], dim=0)
 
-    # Log optimized vectors: 记录优化得到的隐向量
+
+    ####################################
+    #          Finish Logging          #
+    ####################################
     if config.logging:
         optimized_w_path = f"{result_path}/optimized_w_{run_id}.pt"
         torch.save(w_optimized_unselected_all, optimized_w_path)
@@ -541,9 +522,8 @@ def main():
                 pass
             best_layer = best_layer_result[-1]
             print(
-                f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
+                f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!\n'
             )
-        print('\n')
         
         # 记录fid和prcd相关结果
         for i in range(layer_num):
@@ -628,14 +608,13 @@ def main():
                 wandb.save(filename_distance, policy='now')
             except:
                 pass
-
-    end_time = time.perf_counter()
-    with open('time.txt', 'w') as file:
-        file.write(f'运行时间：{end_time-start_time}秒')            
+        
+        # 记录所用时间
+        end_time = time.perf_counter()
+        with open(f'{result_path}/time.txt', 'w') as file:
+            file.write(f'运行时间：{end_time-start_time}秒')
+            
     exit()
-    ####################################
-    #          Finish Logging          #
-    ####################################
 
     if rtpt:
         rtpt.step(subtitle=f'Finishing up')

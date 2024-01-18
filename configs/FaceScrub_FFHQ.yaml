@@ -1,0 +1,77 @@
+---
+target_model:
+  architecture: densenet169 # architecture of target model
+  num_classes: 530 # number of output neurons
+  weights: pretrained/densenet169_facescrub.pt # link to weight file
+evaluation_model:
+  architecture: inception-v3 # architecture of evaluation model
+  num_classes: 530 # number of output neurons
+  weights: pretrained/inception_v3_facescrub.pt # link to weight file
+augmented_models:
+  architecture: [resnet152,resnext101]
+  num_classes: 530
+  weights: [pretrained/resnet152_ffhq_distill.pt,pretrained/resnext101_ffhq_distill.pt]
+
+stylegan_model: stylegan2_intermediate/ffhq_G.pth
+seed: 42
+dataset: facescrub
+result_path: results/facescrub
+
+candidates:
+  num_candidates: 200
+  candidate_search:
+    search_space_size: 2000
+    center_crop: 800
+    resize: 224
+    horizontal_flip: true
+    batch_size: 20
+    truncation_psi: 0.5
+    truncation_cutoff: 8
+
+attack:
+  batch_size: 5
+  num_epochs: 50
+  targets: 2
+  discriminator_loss_weight: 0.0
+  single_w: true
+  clip: false
+  augmentation_num: 0 # 使用增强模型的数量,0为不使用
+  transformations:
+    CenterCrop:
+      size: 800
+    Resize:
+      size: 224
+      antialias: true
+    RandomResizedCrop:
+      size: [224, 224]
+      scale: [0.9, 1.0]
+      ratio: [1.0, 1.0]
+      antialias: true
+
+  optimizer:
+    Adam:
+      lr: 0.005
+      weight_decay: 0
+      betas: [0.1, 0.1]
+
+# 中间层相关
+intermediate:
+  start: 0
+  end: 8
+  steps: [50,10]
+  max_radius_mid_vecor: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
+  max_radius_w: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
+
+final_selection:
+  samples_per_target: 50
+  approach: transforms
+  iterations: 100
+
+
+wandb:
+  enable_logging: true
+  wandb_init_args:
+    project: intermediate-MIA
+    entity: model-inversion
+    save_code: true
+    name: intermediate-FaceScrub-10

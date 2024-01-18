@@ -166,7 +166,7 @@ def main():
                 gpu_devices=gpu_devices)
 
     # Load Inception-v3 evaluation model and remove final layer: 加载评估模型用于距离计算
-    evaluation_model_dist = config.create_evaluation_model()
+    evaluation_model_dist, _ = config.create_evaluation_model()
     evaluation_model_dist.model.fc = torch.nn.Sequential()
     evaluation_model_dist = torch.nn.DataParallel(evaluation_model_dist,
                                                   device_ids=gpu_devices)

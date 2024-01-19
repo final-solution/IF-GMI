@@ -165,6 +165,8 @@ class AttackConfigParser:
             lr = args['lr']
             break
 
+        tmp = self.attack['targets']
+        self.attack['targets'] = len(tmp)
         config = {
             **self.attack, **self.intermediate, 
             **self.candidates,
@@ -180,7 +182,8 @@ class AttackConfigParser:
         }
         if 'lr_scheduler' in self._config:
             config['lr_scheduler'] = self.lr_scheduler
-
+        self.attack['targets'] = tmp
+        
         return config
 
     def create_attack_transformations(self):

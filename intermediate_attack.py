@@ -44,11 +44,11 @@ def main():
     now_time = time.strftime('%Y%m%d_%H%M', time.localtime(time.time()))
     init_mem = psutil.virtual_memory().free
     min_mem = init_mem
-    print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
+    
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '2'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -76,19 +76,19 @@ def main():
                 return key
 
         idx_to_class = KeyDict()
-    print('target dataset: ', config.dataset.lower())
+    
 
     # Load pre-trained StyleGan2 components: 加载预训练GAN
     G = load_generator(config.stylegan_model)
     # D = load_discrimator(config.stylegan_model)
     num_ws = G.num_ws
-    print('使用的GAN路径: ', config.stylegan_model)
+    
 
     # Load target model and set dataset: 加载目标模型与数据集
-    target_model, name= config.create_target_model()
+    target_model, target_name= config.create_target_model()
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset()
-    print('target model: ', name)
+    
 
     # Load augmented models: 加载增强模型，用于克服过拟合
     aug_num = config.attack['augmentation_num']
@@ -118,11 +118,10 @@ def main():
     targets = config.create_target_vector()
 
     # 加载评价模型Incv3
-    evaluation_model, name = config.create_evaluation_model()
+    evaluation_model, eval_name = config.create_evaluation_model()
     evaluation_model = torch.nn.DataParallel(evaluation_model)
     evaluation_model.to(device)
     evaluation_model.eval()
-    print('evaluation model: ', name)
     class_acc_evaluator = ClassificationAccuracy(evaluation_model,
                                                  layer_num=layer_num,
                                                  device=device)
@@ -166,7 +165,7 @@ def main():
                 gpu_devices=gpu_devices)
 
     # Load Inception-v3 evaluation model and remove final layer: 加载评估模型用于距离计算
-    evaluation_model_dist, _ = config.create_evaluation_model()
+    evaluation_model_dist, _= config.create_evaluation_model()
     evaluation_model_dist.model.fc = torch.nn.Sequential()
     evaluation_model_dist = torch.nn.DataParallel(evaluation_model_dist,
                                                   device_ids=gpu_devices)
@@ -215,6 +214,11 @@ def main():
         save_dict_to_yaml(
             save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
         tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
+        print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
+        print('使用的GAN路径: ', config.stylegan_model)
+        print('target model: ', target_name)
+        print('target dataset: ', config.dataset.lower())
+        print('evaluation model: ', eval_name)
 
     # Print attack configuration: 打印攻击参数设置
     print(
@@ -392,8 +396,8 @@ def main():
                 attack_dataset_uf.targets = target_list
 
                 # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
-                # fid_evaluation.set(training_dataset, attack_dataset)
-                # fid_evaluation.compute_fid(layer, rtpt)
+                fid_evaluation.set(training_dataset, attack_dataset)
+                fid_evaluation.compute_fid(layer, rtpt)
 
                 # compute precision, recall, density, coverage: 计算指标
                 prcd_uf.set(training_dataset_uf,attack_dataset_uf)
@@ -527,12 +531,12 @@ def main():
         
         # 记录fid和prcd相关结果
         for i in range(layer_num):
-            # fid_score = fid_evaluation.get_fid(i)
+            fid_score = fid_evaluation.get_fid(i)
             precision, recall, density, coverage = prcd_uf.get_prcd(i)
             print(f'Unfiltered metrics of layer {i}:')
-            # print(
-            #     f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
-            # )
+            print(
+                f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
+            )
             print(
                 f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
             )

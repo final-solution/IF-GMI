@@ -93,7 +93,6 @@ def load_generator(filepath):
     """
     sys.path.append('stylegan2_intermediate')
     from stylegan2_intermediate.training.networks import Generator
-    print('使用的GAN路径为:', filepath)
     mapping = {'num_layers': 8,
                'embed_features': None,
                'layer_features': None,

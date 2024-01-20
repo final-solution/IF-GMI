@@ -147,6 +147,13 @@ def main():
                                dims=2048,
                                num_workers=8,
                                gpu_devices=gpu_devices)
+    fid_evaluation_uf = FID_Score(layer_num,
+                               device=device,
+                               crop_size=crop_size,
+                               batch_size=batch_size * 3,
+                               dims=2048,
+                               num_workers=8,
+                               gpu_devices=gpu_devices)
     prcd = PRCD(layer_num,
                 device=device,
                 crop_size=crop_size,
@@ -396,14 +403,16 @@ def main():
                 attack_dataset_uf.targets = target_list
 
                 # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
-                fid_evaluation.set(training_dataset, attack_dataset)
-                fid_evaluation.compute_fid(layer, rtpt)
+                fid_evaluation_uf.set(training_dataset_uf, attack_dataset_uf)
+                fid_evaluation_uf.compute_fid(layer, rtpt)
 
                 # compute precision, recall, density, coverage: 计算指标
                 prcd_uf.set(training_dataset_uf,attack_dataset_uf)
                 prcd_uf.compute_metric(
                         layer, int(target_list[0]), k=3, rtpt=rtpt)
                 if config.final_selection:
+                    fid_evaluation.set(training_dataset, attack_dataset)
+                    fid_evaluation.compute_fid(layer, rtpt)
                     prcd.set(training_dataset, attack_dataset)
                     prcd.compute_metric(
                         layer, int(final_targets[0]), k=3, rtpt=rtpt)

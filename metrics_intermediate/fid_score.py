@@ -48,12 +48,10 @@ class FID_Score:
     # 获取对应层下的fid
     def get_fid(self, layer):
         pred_arr_gt = np.concatenate(self.pred_arr_gt, axis=0)
-        print('真实维度:',pred_arr_gt.shape)
         mu1 = np.mean(pred_arr_gt, axis=0)
         sigma1 = np.cov(pred_arr_gt, rowvar=False)   
         
         pred_arr_fake = np.concatenate(self.pred_arr_fake[layer], axis=0)
-        print('虚假维度:',pred_arr_fake.shape)
         mu2 = np.mean(pred_arr_fake, axis=0)
         sigma2 = np.cov(pred_arr_fake, rowvar=False)     
         fid_value = pytorch_fid.fid_score.calculate_frechet_distance(

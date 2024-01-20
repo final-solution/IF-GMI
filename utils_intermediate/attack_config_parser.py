@@ -166,9 +166,9 @@ class AttackConfigParser:
             break
 
         tmp = self.attack['targets']
-        self.attack['targets'] = len(tmp)
+        self.attack['targets'] = tmp if tmp == 'all' else len(tmp)
         config = {
-            **self.attack, **self.intermediate, 
+            **self.attack, **self.intermediate,
             **self.candidates,
             'GAN model': self.stylegan_model,
             'target dataset': self.dataset,
@@ -183,7 +183,7 @@ class AttackConfigParser:
         if 'lr_scheduler' in self._config:
             config['lr_scheduler'] = self.lr_scheduler
         self.attack['targets'] = tmp
-        
+
         return config
 
     def create_attack_transformations(self):
@@ -202,7 +202,7 @@ class AttackConfigParser:
             return attack_transformations
 
         return None
-    
+
     @property
     def result_path(self):
         return self._config['result_path']

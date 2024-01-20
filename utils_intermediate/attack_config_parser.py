@@ -150,6 +150,7 @@ class AttackConfigParser:
         elif target_classes == 'all':
             targets = torch.tensor([i for i in range(self.model.num_classes)])
             targets = torch.repeat_interleave(targets, num_candidates)
+            self.attack['targets'] = list(range(self.model.num_classes))
         elif type(target_classes) == int:
             targets = torch.full(size=(num_candidates, ),
                                  fill_value=target_classes)
@@ -166,7 +167,7 @@ class AttackConfigParser:
             break
 
         tmp = self.attack['targets']
-        self.attack['targets'] = tmp if tmp == 'all' else len(tmp)
+        self.attack['targets'] = len(tmp)
         config = {
             **self.attack, **self.intermediate,
             **self.candidates,

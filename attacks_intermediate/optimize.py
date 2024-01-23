@@ -7,6 +7,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+def max_margin_loss(out, iden):
+    real = out.gather(1, iden.unsqueeze(1)).squeeze(1)
+    tmp1 = torch.argsort(out, dim=1)[:, -2:]
+    new_y = torch.where(tmp1[:, -1] == iden, tmp1[:, -2], tmp1[:, -1])
+    margin = out.gather(1, new_y.unsqueeze(1)).squeeze(1)
+
+    return (-1 * real).mean() + margin.mean()
 
 class Optimization():
     def __init__(self, target_model, augmented_models, synthesis, discriminator, transformations, num_ws, config):
@@ -23,6 +30,19 @@ class Optimization():
         self.mid_vector = [None]      # 中间层的向量
         self.intermediate_imgs = {i:[] for i in range(len(config.intermediate['steps']))}
         self.intermediate_w = {i:[] for i in range(len(config.intermediate['steps']))}
+        
+        loss_fn = config.attack['loss_fn'].lower()
+        if loss_fn == 'ce':
+            self.loss_fn = F.cross_entropy
+        elif loss_fn == 'poincare':
+            self.loss_fn = poincare_loss
+        elif loss_fn == 'nll':
+            self.loss_fn = F.nll_loss
+        elif loss_fn == 'maxmargin':
+            self.loss_fn = max_margin_loss
+        else :
+            print('use default poincare loss')
+            self.loss_fn = poincare_loss
     
     def flush_imgs(self):
         self.intermediate_imgs = {i:[] for i in range(len(self.config.intermediate['steps']))}
@@ -88,9 +108,11 @@ class Optimization():
 
             # Compute target loss
             outputs = self.target(imgs)
-            target_loss = poincare_loss(
-                outputs, targets_batch).mean()
+            # target_loss = poincare_loss(outputs, targets_batch).mean()
+                
+                
             # target_loss = F.nll_loss(outputs, targets_batch, reduction='mean')
+            target_loss = self.loss_fn(outputs, targets_batch).mean()
 
             # 计算增强模型的identity loss
             augment_loss = torch.tensor(0.0).cuda()

@@ -18,6 +18,7 @@ dataset: celeba_identities # Target dataset, select one of [facescrub, celeba_id
 result_path: results/intermediate
 
 candidates:
+  loss_fn: poincare # [ce, poincare, maxmargin, nll]
   num_candidates: 200 # Number of latent vectors to optimize for each target.
   candidate_search:
     search_space_size: 5000 # Set of randomly sampled latent vector, from which the candidates are selected.

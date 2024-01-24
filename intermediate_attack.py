@@ -220,7 +220,9 @@ def main():
         Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
         save_dict_to_yaml(
             save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
-        tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
+        config_name:str = args.config
+        teename = config_name[config_name.rfind('/')+1:config_name.rfind('.')]
+        tee = Tee(f'{result_path}/{teename}.log', 'w')
         print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
         print('使用的GAN路径: ', config.stylegan_model)
         print('target model: ', target_name)

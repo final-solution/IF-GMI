@@ -30,12 +30,19 @@ class LossFunctions:
         if 'poincare' in loss_names:
             lossfns.append(poincare_loss)
         self.lossfns = lossfns
+        
+        
+        
+        print('use losses:')
+        for fn in lossfns:
+            # fn: function
+            print(fn.__name__)
     
     def __call__(self, out, iden) -> Any:
         loss  = 0
         for loss_fn in self.lossfns:
-            loss += loss_fn(out, iden)
-        return loss
+            loss += loss_fn(out, iden).mean()
+        return loss / len(self.lossfns)
 
 class Optimization():
     def __init__(self, target_model, augmented_models, synthesis, discriminator, transformations, num_ws, config):

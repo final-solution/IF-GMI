@@ -1,3 +1,4 @@
+from typing import Any
 from losses.poincare import poincare_loss
 from utils_intermediate.stylegan import project_onto_l1_ball
 import math
@@ -14,6 +15,27 @@ def max_margin_loss(out, iden):
     margin = out.gather(1, new_y.unsqueeze(1)).squeeze(1)
 
     return (-1 * real).mean() + margin.mean()
+
+class LossFunctions:
+    
+    def __init__(self, loss_names) -> None:
+        lossfns = []
+        # loss_names = loss_names.lower()
+        if 'ce' in loss_names:
+            lossfns.append(F.cross_entropy)
+        if 'nll' in loss_names:
+            lossfns.append(F.nll_loss)
+        if 'maxmargin' in loss_names:
+            lossfns.append(max_margin_loss)
+        if 'poincare' in loss_names:
+            lossfns.append(poincare_loss)
+        self.lossfns = lossfns
+    
+    def __call__(self, out, iden) -> Any:
+        loss  = 0
+        for loss_fn in self.lossfns:
+            loss += loss_fn(out, iden)
+        return loss
 
 class Optimization():
     def __init__(self, target_model, augmented_models, synthesis, discriminator, transformations, num_ws, config):
@@ -32,17 +54,18 @@ class Optimization():
         self.intermediate_w = {i:[] for i in range(len(config.intermediate['steps']))}
         
         loss_fn = config.attack['loss_fn'].lower()
-        if loss_fn == 'ce':
-            self.loss_fn = F.cross_entropy
-        elif loss_fn == 'poincare':
-            self.loss_fn = poincare_loss
-        elif loss_fn == 'nll':
-            self.loss_fn = F.nll_loss
-        elif loss_fn == 'maxmargin':
-            self.loss_fn = max_margin_loss
-        else :
-            print('use default poincare loss')
-            self.loss_fn = poincare_loss
+        self.loss_fn = LossFunctions(loss_fn)
+        # if loss_fn == 'ce':
+        #     self.loss_fn = F.cross_entropy
+        # elif loss_fn == 'poincare':
+        #     self.loss_fn = poincare_loss
+        # elif loss_fn == 'nll':
+        #     self.loss_fn = F.nll_loss
+        # elif loss_fn == 'maxmargin':
+        #     self.loss_fn = max_margin_loss
+        # else :
+        #     print('use default poincare loss')
+        #     self.loss_fn = poincare_loss
     
     def flush_imgs(self):
         self.intermediate_imgs = {i:[] for i in range(len(self.config.intermediate['steps']))}

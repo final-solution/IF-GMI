@@ -4,8 +4,17 @@ num = 8
 
 import pandas as pd
 
-# 假设上述输出保存在一个名为 "output.txt" 的文件中
-file_path = r'results/intermediate/snyb5axf/inter_20240115_1708.log'
+import argparse
+
+parser = argparse.ArgumentParser(
+        description='Training a target classifier')
+parser.add_argument('-p',
+                    '--path',
+                    default=None,
+                    type=str,
+                    help='log path')
+args = parser.parse_args()
+file_path = args.path
 
 # 将DataFrame写入Excel文件
 excel_path = file_path[:-3] + 'csv'

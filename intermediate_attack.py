@@ -25,6 +25,7 @@ from metrics_intermediate.classification_acc import ClassificationAccuracy
 from metrics_intermediate.fid_score import FID_Score
 from metrics_intermediate.prcd import PRCD
 from utils_intermediate.logger import Tee
+from utils_intermediate.logger import Tee
 from utils_intermediate.attack_config_parser import AttackConfigParser
 from utils_intermediate.datasets import (create_target_dataset, get_facescrub_idx_to_class,
                                          get_stanford_dogs_idx_to_class)
@@ -44,6 +45,7 @@ def main():
     now_time = time.strftime('%Y%m%d_%H%M', time.localtime(time.time()))
     init_mem = psutil.virtual_memory().free
     min_mem = init_mem
+    
     
 
     # Set devices: 设备驱动
@@ -77,14 +79,17 @@ def main():
 
         idx_to_class = KeyDict()
     
+    
 
     # Load pre-trained StyleGan2 components: 加载预训练GAN
     G = load_generator(config.stylegan_model)
     # D = load_discrimator(config.stylegan_model)
     num_ws = G.num_ws
     
+    
 
     # Load target model and set dataset: 加载目标模型与数据集
+    target_model, target_name= config.create_target_model()
     target_model, target_name= config.create_target_model()
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset()
@@ -118,6 +123,7 @@ def main():
     targets = config.create_target_vector()
 
     # 加载评价模型Incv3
+    evaluation_model, eval_name = config.create_evaluation_model()
     evaluation_model, eval_name = config.create_evaluation_model()
     evaluation_model = torch.nn.DataParallel(evaluation_model)
     evaluation_model.to(device)
@@ -154,6 +160,13 @@ def main():
                                dims=2048,
                                num_workers=8,
                                gpu_devices=gpu_devices)
+    fid_evaluation_uf = FID_Score(layer_num,
+                               device=device,
+                               crop_size=crop_size,
+                               batch_size=batch_size * 3,
+                               dims=2048,
+                               num_workers=8,
+                               gpu_devices=gpu_devices)
     prcd = PRCD(layer_num,
                 device=device,
                 crop_size=crop_size,
@@ -172,6 +185,7 @@ def main():
                 gpu_devices=gpu_devices)
 
     # Load Inception-v3 evaluation model and remove final layer: 加载评估模型用于距离计算
+    evaluation_model_dist, _= config.create_evaluation_model()
     evaluation_model_dist, _= config.create_evaluation_model()
     evaluation_model_dist.model.fc = torch.nn.Sequential()
     evaluation_model_dist = torch.nn.DataParallel(evaluation_model_dist,
@@ -221,6 +235,11 @@ def main():
         save_dict_to_yaml(
             save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
         tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
+        print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
+        print('使用的GAN路径: ', config.stylegan_model)
+        print('target model: ', target_name)
+        print('target dataset: ', config.dataset.lower())
+        print('evaluation model: ', eval_name)
         print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
         print('使用的GAN路径: ', config.stylegan_model)
         print('target model: ', target_name)
@@ -405,12 +424,16 @@ def main():
                 # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
                 fid_evaluation_uf.set(training_dataset_uf, attack_dataset_uf)
                 fid_evaluation_uf.compute_fid(layer, rtpt)
+                fid_evaluation_uf.set(training_dataset_uf, attack_dataset_uf)
+                fid_evaluation_uf.compute_fid(layer, rtpt)
 
                 # compute precision, recall, density, coverage: 计算指标
                 prcd_uf.set(training_dataset_uf,attack_dataset_uf)
                 prcd_uf.compute_metric(
                         layer, int(target_list[0]), k=3, rtpt=rtpt)
                 if config.final_selection:
+                    fid_evaluation.set(training_dataset, attack_dataset)
+                    fid_evaluation.compute_fid(layer, rtpt)
                     fid_evaluation.set(training_dataset, attack_dataset)
                     fid_evaluation.compute_fid(layer, rtpt)
                     prcd.set(training_dataset, attack_dataset)
@@ -477,6 +500,10 @@ def main():
     ####################################
     #          Finish Logging          #
     ####################################
+
+    ####################################
+    #          Finish Logging          #
+    ####################################
     if config.logging:
         optimized_w_path = f"{result_path}/optimized_w_{run_id}.pt"
         torch.save(w_optimized_unselected_all, optimized_w_path)
@@ -535,7 +562,7 @@ def main():
                 pass
             best_layer = best_layer_result[-1]
             print(
-                f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!\n'
+                f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!\n\n'
             )
         
         # 记录fid和prcd相关结果
@@ -543,6 +570,9 @@ def main():
             fid_score = fid_evaluation_uf.get_fid(i)
             precision, recall, density, coverage = prcd_uf.get_prcd(i)
             print(f'Unfiltered metrics of layer {i}:')
+            print(
+                f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
+            )
             print(
                 f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
             )

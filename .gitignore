@@ -141,3 +141,4 @@ dmypy.json
 /pretrained
 *.pth
 *.pkl
+*.7z

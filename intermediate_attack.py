@@ -48,7 +48,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0,3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -540,7 +540,7 @@ def main():
         
         # 记录fid和prcd相关结果
         for i in range(layer_num):
-            fid_score = fid_evaluation.get_fid(i)
+            fid_score = fid_evaluation_uf.get_fid(i)
             precision, recall, density, coverage = prcd_uf.get_prcd(i)
             print(f'Unfiltered metrics of layer {i}:')
             print(
@@ -551,12 +551,12 @@ def main():
             )
         if config.final_selection:
             for i in range(layer_num):
-                # fid_score = fid_evaluation.get_fid(i)
+                fid_score = fid_evaluation.get_fid(i)
                 precision, recall, density, coverage = prcd.get_prcd(i)
                 print(f'Filtered metrics of layer {i}:')
-                # print(
-                #     f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
-                # )
+                print(
+                    f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
+                )
                 print(
                     f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
                 )

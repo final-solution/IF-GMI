@@ -79,4 +79,4 @@ wandb: # Options for WandB logging.
     project: intermediate-MIA
     entity: model-inversion
     save_code: true
-    name: main-CelebA-MetFaces-all
+    name: main-CelebA-MetFaces-resnet152-all

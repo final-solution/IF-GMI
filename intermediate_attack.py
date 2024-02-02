@@ -486,7 +486,8 @@ def main():
     for k in range(layer_num):
         w_optimized_unselected_all[k] = torch.cat(
             w_optimized_unselected_all[k], dim=0)
-        final_w_all[k] = torch.cat(final_w_all[k], dim=0)
+        if enable_final_selection:
+            final_w_all[k] = torch.cat(final_w_all[k], dim=0)
 
     ####################################
     #          Finish Logging          #
@@ -501,10 +502,11 @@ def main():
         wandb.save(optimized_w_path, policy='now')
 
         # Log selected vectors: 记录选择结果
-        optimized_w_path_selected = f"{result_path}/optimized_w_selected_{run_id}.pt"
-        torch.save(final_w_all, optimized_w_path_selected)
-        wandb.save(optimized_w_path_selected, policy='now')
-        wandb.config.update({'w_path': optimized_w_path})
+        if enable_final_selection:
+            optimized_w_path_selected = f"{result_path}/optimized_w_selected_{run_id}.pt"
+            torch.save(final_w_all, optimized_w_path_selected)
+            wandb.save(optimized_w_path_selected, policy='now')
+            wandb.config.update({'w_path': optimized_w_path})
 
         # 记录acc相关结果
         best_layer_result = [0]
@@ -515,7 +517,7 @@ def main():
                 best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
                                      avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
             print(
-                f'Unfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
+                f'Unfiltered Evaluation of {w_optimized_unselected_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
                 f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
             )
         try:
@@ -528,7 +530,7 @@ def main():
             pass
         best_layer = best_layer_result[-1]
         print(
-            f'Unfiltered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
+            f'Unfiltered Evaluation of {w_optimized_unselected_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
         if enable_final_selection:
             final_targets_all = torch.cat(final_targets_all, dim=0)
@@ -562,7 +564,7 @@ def main():
             precision, recall, density, coverage = prcd_uf.get_prcd(i)
             print(f'Unfiltered metrics of layer {i}:')
             print(
-                f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
+                f'\tFID score computed on {w_optimized_unselected_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
             )
             print(
                 f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'

@@ -31,7 +31,7 @@ candidates:
 attack:
   batch_size: 5 # Batch size per GPU.
   num_epochs: 50 # Number of optimization iterations per batch.
-  targets: all # Specify the targeted classes, either a single class index, a list of indices, or all.
+  targets: 100 # Specify the targeted classes, either a single class index, a list of indices, or all.
   discriminator_loss_weight: 0.0 # Add discriminator weight.
   single_w: true # Optimize a single 512-vector. Otherwise, a distinct vector for each AdaIn operation is optimized.
   clip: false # Clip generated images in range [-1, 1].

@@ -447,9 +447,11 @@ def main():
                         rtpt=rtpt)
 
             # Compute feature distance only for facial images
+            is_face = False
             if target_dataset in [
-                    'facescrub', 'celeba_identities', 'celeba_attributes'
+                    'facescrub', 'celeba_identities'
             ]:
+                is_face = True
                 for layer in range(layer_num):
                     evaluater_facenet_uf.compute_dist(
                         layer,
@@ -584,20 +586,22 @@ def main():
             wandb.save(filename_distance, policy='now')
         except:
             pass
-        mean_distances_lists = []
-        for i in range(layer_num):
-            avg_dist_facenet, mean_distances_list = evaluater_facenet_uf.get_eval_dist(
-                i)
-            mean_distances_lists.append(mean_distances_list)
-            print(f'Unfiltered mean Distance on FaceNet and layer {i}: ',
-                  avg_dist_facenet.cpu().item())
-        try:
-            filename_distance = write_precision_list(
-                f'{result_path}/distance_facenet_list_unfiltered_{run_id}',
-                mean_distances_lists[best_layer])
-            wandb.save(filename_distance, policy='now')
-        except:
-            pass
+        
+        if is_face:
+            mean_distances_lists = []
+            for i in range(layer_num):
+                avg_dist_facenet, mean_distances_list = evaluater_facenet_uf.get_eval_dist(
+                    i)
+                mean_distances_lists.append(mean_distances_list)
+                print(f'Unfiltered mean Distance on FaceNet and layer {i}: ',
+                    avg_dist_facenet.cpu().item())
+            try:
+                filename_distance = write_precision_list(
+                    f'{result_path}/distance_facenet_list_unfiltered_{run_id}',
+                    mean_distances_lists[best_layer])
+                wandb.save(filename_distance, policy='now')
+            except:
+                pass
 
         if enable_final_selection:
             mean_distances_lists = []
@@ -614,21 +618,23 @@ def main():
                 wandb.save(filename_distance, policy='now')
             except:
                 pass
-            mean_distances_lists = []
-            for i in range(layer_num):
-                avg_dist_facenet, mean_distances_list = evaluater_facenet.get_eval_dist(
-                    i)
-                mean_distances_lists.append(mean_distances_list)
-                print(f'Mean Distance on FaceNet and layer {i}: ',
-                      avg_dist_facenet.cpu().item())
+            
+            if is_face:
+                mean_distances_lists = []
+                for i in range(layer_num):
+                    avg_dist_facenet, mean_distances_list = evaluater_facenet.get_eval_dist(
+                        i)
+                    mean_distances_lists.append(mean_distances_list)
+                    print(f'Mean Distance on FaceNet and layer {i}: ',
+                        avg_dist_facenet.cpu().item())
 
-            try:
-                filename_distance = write_precision_list(
-                    f'{result_path}/distance_facenet_list_filtered_{run_id}',
-                    mean_distances_lists[best_layer])
-                wandb.save(filename_distance, policy='now')
-            except:
-                pass
+                try:
+                    filename_distance = write_precision_list(
+                        f'{result_path}/distance_facenet_list_filtered_{run_id}',
+                        mean_distances_lists[best_layer])
+                    wandb.save(filename_distance, policy='now')
+                except:
+                    pass
 
         # 记录所用时间
         end_time = time.perf_counter()

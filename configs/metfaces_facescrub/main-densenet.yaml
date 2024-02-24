@@ -1,8 +1,8 @@
 ---
 target_model:
-  architecture: resnet18 # architecture of target model
+  architecture: densenet169 # architecture of target model
   num_classes: 530 # number of output neurons
-  weights: pretrained/resnet18_facescrub.pt # link to weight file
+  weights: pretrained/densenet169_facescrub.pt # link to weight file
 evaluation_model:
   architecture: inception-v3 # architecture of evaluation model
   num_classes: 530 # number of output neurons
@@ -15,7 +15,7 @@ augmented_models:
 stylegan_model: stylegan2_intermediate/metfaces_G.pth # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: facescrub # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
-result_path: results/main/metfaces/resnet
+result_path: results/main/metfaces/densenet
 
 candidates:
   num_candidates: 50 # Number of latent vectors to optimize for each target.
@@ -29,7 +29,7 @@ candidates:
     truncation_cutoff: 8 # Truncation cutoff for StyleGAN.
 
 attack:
-  batch_size: 5 # Batch size per GPU.
+  batch_size: 4 # Batch size per GPU.
   num_epochs: 50 # Number of optimization iterations per batch.
   targets: all # Specify the targeted classes, either a single class index, a list of indices, or all.
   discriminator_loss_weight: 0.0 # Add discriminator weight.
@@ -79,4 +79,4 @@ wandb: # Options for WandB logging.
     project: intermediate-MIA
     entity: model-inversion
     save_code: true
-    name: main-FaceScrub-MetFaces-resnet18-all
+    name: main-FaceScrub-MetFaces-densenet169-all

@@ -12,10 +12,10 @@ augmented_models:
   num_classes: 530
   weights: [pretrained/resnet152_ffhq_distill.pt,pretrained/resnext101_ffhq_distill.pt]
 
-stylegan_model: stylegan2_intermediate/metfaces_G.pth # Path to StyleGAN2 weight.
+stylegan_model: stylegan2_intermediate/ffhq_G.pth # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: facescrub # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
-result_path: results/main/metfaces/resnet
+result_path: results/main/ffhq/resnet
 
 candidates:
   num_candidates: 50 # Number of latent vectors to optimize for each target.
@@ -79,4 +79,4 @@ wandb: # Options for WandB logging.
     project: intermediate-MIA
     entity: model-inversion
     save_code: true
-    name: main-FaceScrub-MetFaces-resnet18-all
+    name: main-FaceScrub-FFHQ-resnest101-all

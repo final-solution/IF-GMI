@@ -118,7 +118,6 @@ def main():
 
     # 加载评价模型Incv3
     evaluation_model, eval_name = config.create_evaluation_model()
-    evaluation_model, eval_name = config.create_evaluation_model()
     evaluation_model = torch.nn.DataParallel(evaluation_model)
     evaluation_model.to(device)
     evaluation_model.eval()
@@ -148,14 +147,12 @@ def main():
     prcd_uf = PRCD(layer_num,
                    device=device,
                    crop_size=crop_size,
-                   generator=synthesis,
                    batch_size=batch_size * 3,
                    dims=2048,
                    num_workers=8,
                    gpu_devices=gpu_devices)
 
     # Load Inception-v3 evaluation model and remove final layer: 加载评估模型用于距离计算
-    evaluation_model_dist, _ = config.create_evaluation_model()
     evaluation_model_dist, _ = config.create_evaluation_model()
     evaluation_model_dist.model.fc = torch.nn.Sequential()
     evaluation_model_dist = torch.nn.DataParallel(evaluation_model_dist,
@@ -201,7 +198,6 @@ def main():
         prcd = PRCD(layer_num,
                     device=device,
                     crop_size=crop_size,
-                    generator=synthesis,
                     batch_size=batch_size * 3,
                     dims=2048,
                     num_workers=8,
@@ -233,11 +229,7 @@ def main():
         print('target model: ', target_name)
         print('target dataset: ', config.dataset.lower())
         print('evaluation model: ', eval_name)
-        print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
-        print('使用的GAN路径: ', config.stylegan_model)
-        print('target model: ', target_name)
-        print('target dataset: ', config.dataset.lower())
-        print('evaluation model: ', eval_name)
+
 
     # Print attack configuration: 打印攻击参数设置
     print(
@@ -488,10 +480,6 @@ def main():
             w_optimized_unselected_all[k], dim=0)
         if enable_final_selection:
             final_w_all[k] = torch.cat(final_w_all[k], dim=0)
-
-    ####################################
-    #          Finish Logging          #
-    ####################################
 
     ####################################
     #          Finish Logging          #

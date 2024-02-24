@@ -93,6 +93,12 @@ def load_generator(filepath):
     """
     sys.path.append('stylegan2_intermediate')
     from stylegan2_intermediate.training.networks import Generator
+    
+    if 'afhq' in filepath:
+        img_resolution = 512
+    else:
+        img_resolution = 1024
+    
     mapping = {'num_layers': 8,
                'embed_features': None,
                'layer_features': None,
@@ -102,13 +108,9 @@ def load_generator(filepath):
     synthesis = {'channel_base': 32768, 'channel_max': 512, 'num_fp16_res': 4, 'conv_clamp': 256,
                  'architecture': 'skip', 'resample_filter': [1, 3, 3, 1], 'use_noise': True, 'activation': 'lrelu'}
     G = Generator(z_dim=512, c_dim=0, w_dim=512,
-                  img_resolution=1024, img_channels=3,
+                  img_resolution=img_resolution, img_channels=3,
                   mapping_kwargs=mapping, synthesis_kwargs=synthesis)
-    # with open(filepath, 'rb') as f:
-    #     obj = f.read()
-    # weights = {key: weight_dict for key,
-    #            weight_dict in pickle.loads(obj, encoding='latin1').items()}
-    # G.load_state_dict(weights, strict=False)
+    
     state_dict = torch.load(filepath, map_location='cpu')['state_dict']
     G.load_state_dict(state_dict)
     G = G.cuda()

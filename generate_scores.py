@@ -5,11 +5,11 @@ num = 8
 import pandas as pd
 
 # 假设上述输出保存在一个名为 "output.txt" 的文件中
-file_path = r'results/intermediate/snyb5axf/inter_20240115_1708.log'
+file_path = r'results/main/metfaces/resnet/9309vaem/inter_20240214_2327.log'
 
 # 将DataFrame写入Excel文件
 excel_path = file_path[:-3] + 'csv'
- 
+
 # 创建空的DataFrame来存储数据
 data = {
     'Layer': [],
@@ -23,14 +23,14 @@ data = {
     'UnfRecall': [],
     'UnfDensity': [],
     'UnfCoverage': [],
-    'FAccuracy@1': [],
-    'FAccuracy@5': [],
-    'Mean Distance FaceNet': [],
-    'Mean Distance Inception-v3': [],
-    'Precision': [],
-    'Recall': [],
-    'Density': [],
-    'Coverage': [],
+    # 'FAccuracy@1': [],
+    # 'FAccuracy@5': [],
+    # 'Mean Distance FaceNet': [],
+    # 'Mean Distance Inception-v3': [],
+    # 'Precision': [],
+    # 'Recall': [],
+    # 'Density': [],
+    # 'Coverage': [],
     
     
 }

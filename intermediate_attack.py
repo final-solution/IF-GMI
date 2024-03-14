@@ -49,7 +49,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -316,6 +316,7 @@ def main():
         # Concatenate optimized style vectors: 将没有最终筛选的优化结果拼在一起
         w_optimized_unselected = optimization.intermediate_w
         imgs_optimized_unselected = optimization.intermediate_imgs
+        imgs_raw = torch.cat(optimization.raw_imgs, dim=0)
         for k, v in imgs_optimized_unselected.items():
             imgs_optimized_unselected[k] = torch.cat(v, dim=0)
         for k, v in w_optimized_unselected.items():
@@ -364,123 +365,153 @@ def main():
         ####################################
         #         Attack Accuracy          #
         ####################################
+        
+        # for layer in range(layer_num):
+        #     img__ = imgs_optimized_unselected[layer]
+        #     if img__.ndim == 4:
+        #         img__ = img__[0]
+        #     import torchvision
+        #     from torchvision.transforms import functional as TF
+        #     img = TF.center_crop(img, (800,800))
+        #     img = TF.resize(img, (224,224), antialias=True)
+        #     save_path = os.path.join(result_path, 'layer_images', f'{layer}.png')
+        #     torchvision.utils.save_image(img__, save_path, normalize=True)
+            
+        print(len(imgs_optimized_unselected))
+        print(imgs_optimized_unselected[0].shape)
+        print(result_path)
+        save_ims = [imgs_raw] + [imgs_optimized_unselected[i] for i in range(8)]
+        # img__ = imgs_optimized_unselected[7]
+        from torchvision.transforms import functional as TF
+        for i, img in enumerate(save_ims):
+            import torchvision
+            t = target_list[0].item()
+            save_dir = os.path.join(result_path, 'sample_imgs', f'{t}')
+            os.makedirs(save_dir, exist_ok=True)
+            img = TF.center_crop(img, (800,800))
+            img = TF.resize(img, (224,224), antialias=True)
+            for j in range(len(img)):
+                tconf = torch.softmax(target_model(img[[j]].to(device)), dim=-1)[0][t].item()
+                conf = torch.softmax(evaluation_model(img[[j]].to(device)), dim=-1)[0][t].item()
+                torchvision.utils.save_image(img[j], os.path.join(save_dir, f'{i}_{j}_{tconf:.4f}_{conf:.4f}.png'), normalize=True)
+        # exit()
 
         # 计算acc指标
         # Compute attack accuracy with evaluation model on all generated samples
-        try:
-            # 计算准确率acc
-            print('计算acc')
-            for layer in range(layer_num):
-                class_acc_evaluator.compute_acc(
-                    layer,
-                    imgs_optimized_unselected[layer],
-                    target_list,
-                    config,
-                    batch_size=batch_size * 2,
-                    resize=299,
-                    rtpt=rtpt)
+        # try:
+        #     # 计算准确率acc
+        #     print('计算acc')
+        #     for layer in range(layer_num):
+        #         class_acc_evaluator.compute_acc(
+        #             layer,
+        #             imgs_optimized_unselected[layer],
+        #             target_list,
+        #             config,
+        #             batch_size=batch_size * 2,
+        #             resize=299,
+        #             rtpt=rtpt)
 
-            # Compute attack accuracy on filtered samples: 在筛选过的样本中计算acc
-            if enable_final_selection:
-                for layer in range(layer_num):
-                    class_acc_evaluator_selected.compute_acc(
-                        layer,
-                        final_imgs[layer],
-                        final_targets,
-                        config,
-                        batch_size=batch_size * 2,
-                        resize=299,
-                        rtpt=rtpt)
+        #     # Compute attack accuracy on filtered samples: 在筛选过的样本中计算acc
+        #     if enable_final_selection:
+        #         for layer in range(layer_num):
+        #             class_acc_evaluator_selected.compute_acc(
+        #                 layer,
+        #                 final_imgs[layer],
+        #                 final_targets,
+        #                 config,
+        #                 batch_size=batch_size * 2,
+        #                 resize=299,
+        #                 rtpt=rtpt)
 
-        except Exception:
-            print(traceback.format_exc())
+        # except Exception:
+        #     print(traceback.format_exc())
 
-        ####################################
-        #    FID Score and GAN Metrics     #
-        ####################################
-        target_list = target_list.cpu()
-        print('计算fid和prcd')
-        try:
-            training_dataset = ClassSubset(
-                full_training_dataset,
-                target_classes=torch.unique(final_targets).cpu().tolist())
-            training_dataset_uf = ClassSubset(
-                full_training_dataset,
-                target_classes=torch.unique(target_list).cpu().tolist())
-            for layer in range(layer_num):
-                # create datasets: 创建待使用的数据集
-                attack_dataset = TensorDataset(
-                    final_imgs[layer], final_targets)
-                attack_dataset.targets = final_targets
-                attack_dataset_uf = TensorDataset(
-                    imgs_optimized_unselected[layer], target_list)
-                attack_dataset_uf.targets = target_list
+        # ####################################
+        # #    FID Score and GAN Metrics     #
+        # ####################################
+        # target_list = target_list.cpu()
+        # print('计算fid和prcd')
+        # try:
+        #     training_dataset = ClassSubset(
+        #         full_training_dataset,
+        #         target_classes=torch.unique(final_targets).cpu().tolist())
+        #     training_dataset_uf = ClassSubset(
+        #         full_training_dataset,
+        #         target_classes=torch.unique(target_list).cpu().tolist())
+        #     for layer in range(layer_num):
+        #         # create datasets: 创建待使用的数据集
+        #         attack_dataset = TensorDataset(
+        #             final_imgs[layer], final_targets)
+        #         attack_dataset.targets = final_targets
+        #         attack_dataset_uf = TensorDataset(
+        #             imgs_optimized_unselected[layer], target_list)
+        #         attack_dataset_uf.targets = target_list
 
-                # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
-                fid_evaluation_uf.set(training_dataset_uf, attack_dataset_uf)
-                fid_evaluation_uf.compute_fid(layer, rtpt)
+        #         # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
+        #         fid_evaluation_uf.set(training_dataset_uf, attack_dataset_uf)
+        #         fid_evaluation_uf.compute_fid(layer, rtpt)
 
-                # compute precision, recall, density, coverage: 计算指标
-                prcd_uf.set(training_dataset_uf, attack_dataset_uf)
-                prcd_uf.compute_metric(
-                    layer, int(target_list[0]), k=3, rtpt=rtpt)
-                if enable_final_selection:
-                    fid_evaluation.set(training_dataset, attack_dataset)
-                    fid_evaluation.compute_fid(layer, rtpt)
-                    prcd.set(training_dataset, attack_dataset)
-                    prcd.compute_metric(
-                        layer, int(final_targets[0]), k=3, rtpt=rtpt)
+        #         # compute precision, recall, density, coverage: 计算指标
+        #         prcd_uf.set(training_dataset_uf, attack_dataset_uf)
+        #         prcd_uf.compute_metric(
+        #             layer, int(target_list[0]), k=3, rtpt=rtpt)
+        #         if enable_final_selection:
+        #             fid_evaluation.set(training_dataset, attack_dataset)
+        #             fid_evaluation.compute_fid(layer, rtpt)
+        #             prcd.set(training_dataset, attack_dataset)
+        #             prcd.compute_metric(
+        #                 layer, int(final_targets[0]), k=3, rtpt=rtpt)
 
-        except Exception:
-            print(traceback.format_exc())
+        # except Exception:
+        #     print(traceback.format_exc())
 
-        ####################################
-        #         Feature Distance         #
-        ####################################
-        try:
-            print('计算特征距离')
-            for layer in range(layer_num):
-                evaluate_inception_uf.compute_dist(
-                    layer,
-                    imgs_optimized_unselected[layer],
-                    target_list,
-                    batch_size=batch_size_single * 5,
-                    rtpt=rtpt)
-                if enable_final_selection:
-                    evaluate_inception.compute_dist(
-                        layer,
-                        final_imgs[layer],
-                        final_targets,
-                        batch_size=batch_size_single * 5,
-                        rtpt=rtpt)
+        # ####################################
+        # #         Feature Distance         #
+        # ####################################
+        # try:
+        #     print('计算特征距离')
+        #     for layer in range(layer_num):
+        #         evaluate_inception_uf.compute_dist(
+        #             layer,
+        #             imgs_optimized_unselected[layer],
+        #             target_list,
+        #             batch_size=batch_size_single * 5,
+        #             rtpt=rtpt)
+        #         if enable_final_selection:
+        #             evaluate_inception.compute_dist(
+        #                 layer,
+        #                 final_imgs[layer],
+        #                 final_targets,
+        #                 batch_size=batch_size_single * 5,
+        #                 rtpt=rtpt)
 
-            # Compute feature distance only for facial images
-            if target_dataset in [
-                    'facescrub', 'celeba_identities', 'celeba_attributes'
-            ]:
-                for layer in range(layer_num):
-                    evaluater_facenet_uf.compute_dist(
-                        layer,
-                        imgs_optimized_unselected[layer],
-                        target_list,
-                        batch_size=batch_size_single * 5,
-                        rtpt=rtpt)
-                    if enable_final_selection:
-                        evaluater_facenet.compute_dist(
-                            layer,
-                            final_imgs[layer],
-                            final_targets,
-                            batch_size=batch_size_single * 5,
-                            rtpt=rtpt)
+        #     # Compute feature distance only for facial images
+        #     if target_dataset in [
+        #             'facescrub', 'celeba_identities', 'celeba_attributes'
+        #     ]:
+        #         for layer in range(layer_num):
+        #             evaluater_facenet_uf.compute_dist(
+        #                 layer,
+        #                 imgs_optimized_unselected[layer],
+        #                 target_list,
+        #                 batch_size=batch_size_single * 5,
+        #                 rtpt=rtpt)
+        #             if enable_final_selection:
+        #                 evaluater_facenet.compute_dist(
+        #                     layer,
+        #                     final_imgs[layer],
+        #                     final_targets,
+        #                     batch_size=batch_size_single * 5,
+        #                     rtpt=rtpt)
 
-        except Exception:
-            print(traceback.format_exc())
+        # except Exception:
+        #     print(traceback.format_exc())
 
-        now_mem = psutil.virtual_memory().free
-        print(f'第{idx}轮攻击后,计算各指标后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
-        min_mem = min(now_mem, min_mem)
+        # now_mem = psutil.virtual_memory().free
+        # print(f'第{idx}轮攻击后,计算各指标后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        # min_mem = min(now_mem, min_mem)
 
-    print(f'最多使用内存:{((init_mem-min_mem) / (1024**3)):.4f}GB')
+    # print(f'最多使用内存:{((init_mem-min_mem) / (1024**3)):.4f}GB')
 
     # 处理最终结果
     for k in range(layer_num):

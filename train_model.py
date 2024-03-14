@@ -8,6 +8,7 @@ import torch
 from metrics.accuracy import Accuracy
 from utils.training_config_parser import TrainingConfigParser
 
+os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 
 def main():
     # Define and parse arguments
@@ -29,6 +30,20 @@ def main():
 
     # Load json config file
     config = TrainingConfigParser(args.config.strip())
+    
+    # Build the datasets
+    train_set, valid_set, test_set = config.create_datasets()
+    import torchvision
+    # [341,335,483,35,512,521,290,195,415,137]
+    for i in range(len(train_set)):
+        _, t = train_set[i]
+        img, _ = train_set.dataset[i]
+        if t in [218,137]:
+            label_dir = f'samplefacescrub/{t}'
+            os.makedirs(label_dir, exist_ok=True)
+            img.save(os.path.join(label_dir, f'{t}_{i}.png'))
+            # torchvision.utils.save_image(img, os.path.join(label_dir, f'{t}_{i}.png'))
+    exit()
 
     # Set seeds and make deterministic
     seed = config.seed
@@ -40,9 +55,7 @@ def main():
         print('Compiling model with torch.compile')
         target_model.model = torch.compile(target_model.model)
 
-    # Build the datasets
-    train_set, valid_set, test_set = config.create_datasets()
-
+    
     criterion = torch.nn.CrossEntropyLoss()
     metric = Accuracy
 

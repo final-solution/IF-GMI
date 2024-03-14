@@ -23,15 +23,19 @@ class Optimization():
         self.mid_vector = [None]      # 中间层的向量
         self.intermediate_imgs = {i:[] for i in range(len(config.intermediate['steps']))}
         self.intermediate_w = {i:[] for i in range(len(config.intermediate['steps']))}
+        self.raw_imgs = []
     
     def flush_imgs(self):
+        self.raw_imgs = []
         self.intermediate_imgs = {i:[] for i in range(len(self.config.intermediate['steps']))}
         self.intermediate_w = {i:[] for i in range(len(self.config.intermediate['steps']))}
 
     def optimize(self, w_batch, targets_batch):
         print("-------------start intermidiate space search---------------")
         self.mid_vector = [None]
-
+        self.synthesis.module.set_layer(
+                self.config.intermediate['start'], self.config.intermediate['end'])
+        self.raw_imgs.append(self.synthesize(w_batch, layer_in=self.mid_vector[-1], num_ws=self.num_ws).detach().cpu())
         # 每一轮就是搜一层
         for i, steps in enumerate(self.config.intermediate['steps']):
             torch.cuda.empty_cache()

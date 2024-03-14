@@ -4,8 +4,17 @@ num = 8
 
 import pandas as pd
 
-# 假设上述输出保存在一个名为 "output.txt" 的文件中
-file_path = r'results/intermediate/snyb5axf/inter_20240115_1708.log'
+import argparse
+
+parser = argparse.ArgumentParser(
+        description='Training a target classifier')
+parser.add_argument(
+                    'path',
+                    default=None,
+                    type=str,
+                    help='log path')
+args = parser.parse_args()
+file_path = args.path
 
 # 将DataFrame写入Excel文件
 excel_path = file_path[:-3] + 'csv'
@@ -19,24 +28,26 @@ data = {
     
     'Unf Mean Distance FaceNet': [],
     'Unf Mean Distance Inception-v3': [],
+    'fid': [],
     'UnfPrecision': [],
     'UnfRecall': [],
     'UnfDensity': [],
     'UnfCoverage': [],
-    'FAccuracy@1': [],
-    'FAccuracy@5': [],
-    'Mean Distance FaceNet': [],
-    'Mean Distance Inception-v3': [],
-    'Precision': [],
-    'Recall': [],
-    'Density': [],
-    'Coverage': [],
+    
+    # 'FAccuracy@1': [],
+    # 'FAccuracy@5': [],
+    # 'Mean Distance FaceNet': [],
+    # 'Mean Distance Inception-v3': [],
+    # 'Precision': [],
+    # 'Recall': [],
+    # 'Density': [],
+    # 'Coverage': [],
     
     
 }
 
 # 读取文件并处理每一行
-with open(file_path, 'r') as file:
+with open(file_path, 'r', encoding='utf8') as file:
     flag = True
     t = 'unf'
     for line in file:
@@ -65,7 +76,10 @@ with open(file_path, 'r') as file:
                 data['FAccuracy@5'].append(accuracy_5)
             # data['Correct Confidence'].append(correct_conf)
             # data['Total Confidence'].append(total_conf)
-
+        elif 'FID' in line:
+            fid = line.split()[-1]
+            fid = float(fid)
+            data['fid'].append(fid)
         elif 'Precision' in line:
             parts = line.split()
             

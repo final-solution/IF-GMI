@@ -21,7 +21,9 @@ class AttackConfigParser:
             config = yaml.safe_load(file)
         if type(config['attack']['targets']) == int:
             i = config['attack']['targets']
-            config['attack']['targets'] = list(range(i)) if i > 0 else 0
+            # config['attack']['targets'] = list(range(i)) if i > 0 else 0
+            config['attack']['targets'] = list(i)
+            print('attack targets', config['attack']['targets'])
         self._config = config
 
     def create_target_model(self):

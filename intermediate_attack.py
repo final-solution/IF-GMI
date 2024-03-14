@@ -49,7 +49,7 @@ def main():
 
     # Set devices: 设备驱动
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '2'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -107,6 +107,7 @@ def main():
             augmented_models[i], device_ids=gpu_devices)
         augmented_models[i].name = augmented_models_name[i]
     synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
+    # synthesis = G.synthesis
     synthesis.num_ws = num_ws
     # discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
     discriminator = None
@@ -366,34 +367,37 @@ def main():
         #         Attack Accuracy          #
         ####################################
         
-        # for layer in range(layer_num):
-        #     img__ = imgs_optimized_unselected[layer]
-        #     if img__.ndim == 4:
-        #         img__ = img__[0]
+        for layer in range(layer_num):
+            img__ = imgs_optimized_unselected[layer]
+            if img__.ndim == 4:
+                img__ = img__[0]
+            import torchvision
+            from torchvision.transforms import functional as TF
+            img__ = TF.center_crop(img__, (800,800))
+            img__ = TF.resize(img__, (224,224), antialias=True)
+            save_path = os.path.join(result_path, 'layer_images')
+            os.makedirs(save_path, exist_ok=True)
+            save_path = os.path.join(save_path, f'{layer}.png')
+            torchvision.utils.save_image(img__, save_path, normalize=True)
+            
+        # print(len(imgs_optimized_unselected))
+        # print(imgs_optimized_unselected[0].shape)
+        # print(result_path)
+        # save_ims = [imgs_raw] + [imgs_optimized_unselected[i] for i in range(8)]
+        # # img__ = imgs_optimized_unselected[7]
+        # from torchvision.transforms import functional as TF
+        # for i, img in enumerate(save_ims):
         #     import torchvision
-        #     from torchvision.transforms import functional as TF
+        #     t = target_list[0].item()
+        #     save_dir = os.path.join(result_path, 'sample_imgs', f'{t}')
+        #     os.makedirs(save_dir, exist_ok=True)
         #     img = TF.center_crop(img, (800,800))
         #     img = TF.resize(img, (224,224), antialias=True)
-        #     save_path = os.path.join(result_path, 'layer_images', f'{layer}.png')
-        #     torchvision.utils.save_image(img__, save_path, normalize=True)
-            
-        print(len(imgs_optimized_unselected))
-        print(imgs_optimized_unselected[0].shape)
-        print(result_path)
-        save_ims = [imgs_raw] + [imgs_optimized_unselected[i] for i in range(8)]
-        # img__ = imgs_optimized_unselected[7]
-        from torchvision.transforms import functional as TF
-        for i, img in enumerate(save_ims):
-            import torchvision
-            t = target_list[0].item()
-            save_dir = os.path.join(result_path, 'sample_imgs', f'{t}')
-            os.makedirs(save_dir, exist_ok=True)
-            img = TF.center_crop(img, (800,800))
-            img = TF.resize(img, (224,224), antialias=True)
-            for j in range(len(img)):
-                tconf = torch.softmax(target_model(img[[j]].to(device)), dim=-1)[0][t].item()
-                conf = torch.softmax(evaluation_model(img[[j]].to(device)), dim=-1)[0][t].item()
-                torchvision.utils.save_image(img[j], os.path.join(save_dir, f'{i}_{j}_{tconf:.4f}_{conf:.4f}.png'), normalize=True)
+        #     for j in range(len(img)):
+        #         tconf = torch.softmax(target_model(img[[j]].to(device)), dim=-1)[0][t].item()
+        #         conf = torch.softmax(evaluation_model(img[[j]].to(device)), dim=-1)[0][t].item()
+        #         torchvision.utils.save_image(img[j], os.path.join(save_dir, f'{i}_{j}_{tconf:.4f}_{conf:.4f}.png'), normalize=True)
+                
         # exit()
 
         # 计算acc指标

@@ -408,7 +408,7 @@ def main():
                     imgs_optimized_unselected[layer], target_list)
                 attack_dataset_uf.targets = target_list
 
-                # compute FID score: 计算fid指标（暂时不考虑计算这个指标）
+                # compute FID score: 计算fid指标
                 fid_evaluation_uf.set(training_dataset_uf, attack_dataset_uf)
                 fid_evaluation_uf.compute_fid(layer, rtpt)
 

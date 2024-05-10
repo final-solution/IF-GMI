@@ -5,7 +5,7 @@ num = 8
 import pandas as pd
 
 # 假设上述输出保存在一个名为 "output.txt" 的文件中
-file_path = r'results/main/metfaces/resnet/9309vaem/inter_20240214_2327.log'
+file_path = r'results/main/afhq/resnet/l7bic1u2/inter_20240224_0238.log'
 
 # 将DataFrame写入Excel文件
 excel_path = file_path[:-3] + 'csv'
@@ -17,7 +17,7 @@ data = {
     'UnfAccuracy@1': [],
     'UnfAccuracy@5': [],
     
-    'Unf Mean Distance FaceNet': [],
+    # 'Unf Mean Distance FaceNet': [],
     'Unf Mean Distance Inception-v3': [],
     'UnfPrecision': [],
     'UnfRecall': [],

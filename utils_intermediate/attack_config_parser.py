@@ -19,9 +19,9 @@ class AttackConfigParser:
     def __init__(self, config_file):
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
-        if config['attack']['targets'] != 0:
+        if type(config['attack']['targets']) == int:
             i = config['attack']['targets']
-            config['attack']['targets'] = list(range(i))
+            config['attack']['targets'] = list(range(i)) if i > 0 else 0
         self._config = config
 
     def create_target_model(self):
@@ -38,7 +38,7 @@ class AttackConfigParser:
 
         model.eval()
         self.model = model
-        return model
+        return model, config['architecture']
 
     def create_augmented_models(self, index):
         if 'wandb_target_run' in self._config:
@@ -79,7 +79,7 @@ class AttackConfigParser:
 
         evaluation_model.eval()
         self.evaluation_model = evaluation_model
-        return evaluation_model
+        return evaluation_model, config['architecture']
 
     def create_optimizer(self, params, config=None):
         if config is None:
@@ -150,6 +150,7 @@ class AttackConfigParser:
         elif target_classes == 'all':
             targets = torch.tensor([i for i in range(self.model.num_classes)])
             targets = torch.repeat_interleave(targets, num_candidates)
+            self.attack['targets'] = list(range(self.model.num_classes))
         elif type(target_classes) == int:
             targets = torch.full(size=(num_candidates, ),
                                  fill_value=target_classes)
@@ -165,18 +166,24 @@ class AttackConfigParser:
             lr = args['lr']
             break
 
+        tmp = self.attack['targets']
+        self.attack['targets'] = len(tmp)
         config = {
-            **self.attack, **self.intermediate, 
-            'num_candidates': self.candidates['num_candidates'],
+            **self.attack, **self.intermediate,
+            **self.candidates,
+            'GAN model': self.stylegan_model,
+            'target dataset': self.dataset,
+            'result path': self.result_path,
             'optimizer': self.optimizer,
             'lr': lr,
             'use_scheduler': 'lr_scheduler' in self._config,
             'target_architecture': self.model.architecture,
             'target_extended': self.model.wandb_name,
-            **self.final_selection
+            'enable final selection': 'final_selection' in self._config
         }
         if 'lr_scheduler' in self._config:
             config['lr_scheduler'] = self.lr_scheduler
+        self.attack['targets'] = tmp
 
         return config
 
@@ -196,6 +203,10 @@ class AttackConfigParser:
             return attack_transformations
 
         return None
+
+    @property
+    def result_path(self):
+        return self._config['result_path']
 
     @property
     def candidates(self):

@@ -40,7 +40,7 @@ class Optimization():
                 raise Exception('Attemping to go after end layer')
             imgs, w_batch = self.intermediate(
                 w_batch, start_layer, targets_batch, steps, i)
-            self.intermediate_imgs[i].append(imgs.detach().cpu())
+            self.intermediate_imgs[i].append(imgs)
             self.intermediate_w[i].append(w_batch.detach().cpu())
 
     # 定义中间层搜索一层的函数
@@ -71,7 +71,7 @@ class Optimization():
         for i in range(steps):
             imgs = self.synthesize(
                 w, layer_in=self.mid_vector[-1], num_ws=self.num_ws)
-            origin_imgs = imgs
+            origin_imgs = imgs.detach().cpu()
 
             # compute discriminator loss
             if self.discriminator_weight > 0:

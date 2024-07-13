@@ -1,0 +1,71 @@
+---
+target_model:
+  architecture: resnet152 # architecture of target model
+  num_classes: 120 # number of output neurons
+  weights: pretrained/resnet152_stanford_dogs.pt # link to weight file
+evaluation_model:
+  architecture: inception-v3 # architecture of evaluation model
+  num_classes: 120 # number of output neurons
+  weights: pretrained/inception_v3_stanford_dogs.pt # link to weight file
+
+stylegan_model: stylegan2_intermediate/afhq_G.pth
+seed: 42
+dataset: stanford_dogs_cropped
+result_path: results/main/afhq/resnet
+
+candidates:
+  num_candidates: 50
+  candidate_search:
+    search_space_size: 2000
+    center_crop: null
+    resize: 224
+    horizontal_flip: true
+    batch_size: 25
+    truncation_psi: 0.5
+    truncation_cutoff: 8
+
+attack:
+  batch_size: 5
+  num_epochs: 100
+  targets: all
+  discriminator_loss_weight: 0.0
+  single_w: true
+  clip: false
+  augmentation_num: 0
+  transformations:
+    Resize:
+      size: 224
+      antialias: true
+    RandomResizedCrop:
+      size: [224, 224]
+      scale: [0.75, 1.0]
+      ratio: [1.0, 1.0]
+      antialias: true
+
+  optimizer:
+    Adam:
+      lr: 0.01
+      weight_decay: 0
+      betas: [0.1, 0.1]
+
+# 中间层相关
+intermediate:
+  start: 0
+  end: 7
+  steps: [100,10,10,10,10,10,10]
+  max_radius_mid_vecor: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
+  max_radius_w: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
+
+final_selection:
+  samples_per_target: 50
+  approach: transforms
+  iterations: 100
+
+
+wandb: # Options for WandB logging.
+  enable_logging: true # Activate logging.
+  wandb_init_args: # WandB init arguments.
+    project: intermediate-MIA
+    entity: model-inversion
+    save_code: true
+    name: main-Stanford-AFHQ-resnet152-all

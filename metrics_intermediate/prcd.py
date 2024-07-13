@@ -10,12 +10,11 @@ sys.path.insert(0, '/workspace')
 
 
 class PRCD:
-    def __init__(self, layer_num, device, crop_size=None, generator=None, batch_size=128, dims=2048, num_workers=16, gpu_devices=[]):
+    def __init__(self, layer_num, device, crop_size=None, batch_size=128, dims=2048, num_workers=16, gpu_devices=[]):
         self.batch_size = batch_size
         self.dims = dims
         self.num_workers = num_workers
         self.device = device
-        self.generator = generator
         self.crop_size = crop_size
         self.precision_list = {i: [] for i in range(layer_num)}
         self.recall_list = {i: [] for i in range(layer_num)}

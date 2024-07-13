@@ -131,6 +131,7 @@ dmypy.json
 
 # StyleGAN2
 /stylegan2-ada-pytorch
+/ResNeSt
 /wandb
 /results
 /weights
@@ -140,3 +141,4 @@ dmypy.json
 /pretrained
 *.pth
 *.pkl
+*.7z

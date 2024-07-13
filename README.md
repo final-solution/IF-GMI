@@ -8,4 +8,4 @@
 [Meikang Qiu](https://scholar.google.cz/citations?hl=zh-CN&user=smMVdtwAAAAJ)
 [Shu-Tao Xia](https://www.sigs.tsinghua.edu.cn/xst/main.htm)
 
-The detailed README will be updated very soon.
+The detailed README file will be updated very soon.

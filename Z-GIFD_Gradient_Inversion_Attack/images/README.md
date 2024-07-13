@@ -1,1 +1,0 @@
-# Images from the CLI will be stored here.

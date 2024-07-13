@@ -1,2 +1,0 @@
-1.stylegan2-ada-pytorch/torch_utils/ops/bias_act.py的47-50行已注释
-2.stylegan2-ada-pytorch/torch_utils/ops/upfirdn2d.py的31-34行已注释

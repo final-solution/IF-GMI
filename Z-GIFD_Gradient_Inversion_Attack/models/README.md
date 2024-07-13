@@ -1,1 +1,0 @@
-# Model checkpoints will be stored here.

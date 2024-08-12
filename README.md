@@ -1,5 +1,5 @@
 # A Closer Look at GAN Priors: Exploiting Intermediate Features for Enhanced Model Inversion Attacks
-[ECCV-2024] A PyTorch official implementation for "A Closer Look at GAN Priors: Exploiting Intermediate Features for Enhanced Model Inversion Attacks", accepted to ECCV-2024.
+[ECCV-2024 Oral] A PyTorch official implementation for "A Closer Look at GAN Priors: Exploiting Intermediate Features for Enhanced Model Inversion Attacks", accepted to ECCV-2024.
 
 [Yixiang Qiu*](https://scholar.google.cz/citations?hl=zh-CN&user=kxotrxgAAAAJ)
 [Hao Fang*](https://scholar.google.cz/citations?user=12237G0AAAAJ&hl=zh-CN),

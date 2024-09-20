@@ -18,19 +18,19 @@ from facenet_pytorch import InceptionResnetV1
 from rtpt import RTPT
 from torch.utils.data import TensorDataset
 
-from attacks_intermediate.final_selection import perform_final_selection
-from attacks_intermediate.optimize import Optimization
+from attacks.final_selection import perform_final_selection
+from attacks.optimize import Optimization
 from datasets.custom_subset import ClassSubset
-from metrics_intermediate.classification_acc import ClassificationAccuracy
-from metrics_intermediate.fid_score import FID_Score
-from metrics_intermediate.prcd import PRCD
-from utils_intermediate.logger import Tee
-from utils_intermediate.logger import Tee
-from utils_intermediate.attack_config_parser import AttackConfigParser
-from utils_intermediate.datasets import (create_target_dataset, get_facescrub_idx_to_class,
+from metrics.classification_acc import ClassificationAccuracy
+from metrics.fid_score import FID_Score
+from metrics.prcd import PRCD
+from utils.logger import Tee
+from utils.logger import Tee
+from utils.attack_config_parser import AttackConfigParser
+from utils.datasets import (create_target_dataset, get_facescrub_idx_to_class,
                                          get_stanford_dogs_idx_to_class)
-from utils_intermediate.stylegan import create_image, load_discrimator, load_generator
-from utils_intermediate.wandb import *
+from utils.stylegan import create_image, load_discrimator, load_generator
+from utils.wandb import *
 
 os.environ["WANDB_MODE"] = "offline"
 

@@ -4,8 +4,8 @@ num = 8
 
 import pandas as pd
 
-# 假设上述输出保存在一个名为 "output.txt" 的文件中
-file_path = r'results/main/afhq/resnet/l7bic1u2/inter_20240224_0238.log'
+# 假设上述输出保存在一个名为 "xxx.log" 的文件中
+file_path = r'your_path/xxx.log'
 
 # 将DataFrame写入Excel文件
 excel_path = file_path[:-3] + 'csv'

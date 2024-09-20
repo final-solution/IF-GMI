@@ -7,11 +7,10 @@ evaluation_model:
   architecture: inception-v3 # architecture of evaluation model
   num_classes: 530 # number of output neurons
   weights: pretrained/inception_v3_facescrub.pt # link to weight file
-augmented_models:
-  architecture: [resnet152,resnext101]
-  num_classes: 530
-  weights: [pretrained/resnet152_ffhq_distill.pt,pretrained/resnext101_ffhq_distill.pt]
 
+logging: True
+logging_images: True
+name: FaceScrub
 stylegan_model: stylegan2_intermediate/metfaces_G.pth # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.
 dataset: facescrub # Target dataset, select one of [facescrub, celeba_identities, stanford_dogs_cropped, stanford_dogs_uncropped].
@@ -30,12 +29,10 @@ candidates:
 
 attack:
   batch_size: 4 # Batch size per GPU.
-  num_epochs: 50 # Number of optimization iterations per batch.
   targets: all # Specify the targeted classes, either a single class index, a list of indices, or all.
   discriminator_loss_weight: 0.0 # Add discriminator weight.
   single_w: true # Optimize a single 512-vector. Otherwise, a distinct vector for each AdaIn operation is optimized.
   clip: false # Clip generated images in range [-1, 1].
-  augmentation_num: 0 # 使用增强模型的数量,0为不使用
   transformations: # Transformations applied during the optimization.
     CenterCrop:
       size: 800
@@ -54,29 +51,9 @@ attack:
       weight_decay: 0
       betas: [0.1, 0.1]
 
-  # lr_scheduler: # Option to provide a learning rate scheduler from torch.optim.
-  #   MultiStepLR:
-  #     milestones: [30, 40]
-  #     gamma: 0.1
-
-# 中间层相关
 intermediate:
   start: 0
   end: 8
   steps: [50,10,10,10,10,10,10,10]
   max_radius_mid_vecor: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
   max_radius_w: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
-
-final_selection:
-  samples_per_target: 50 # Number of samples to select from the set of optimized latent vectors.
-  approach: transforms # Currently only transforms is available as an option.
-  iterations: 100 # Number of iterations random transformations are applied.
-
-
-wandb: # Options for WandB logging.
-  enable_logging: true # Activate logging.
-  wandb_init_args: # WandB init arguments.
-    project: intermediate-MIA
-    entity: model-inversion
-    save_code: true
-    name: main-FaceScrub-MetFaces-densenet169-all

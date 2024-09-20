@@ -8,6 +8,9 @@ evaluation_model:
   num_classes: 120 # number of output neurons
   weights: pretrained/inception_v3_stanford_dogs.pt # link to weight file
 
+logging: True
+logging_images: True
+name: Stanford
 stylegan_model: stylegan2_intermediate/afhq_G.pth
 seed: 42
 dataset: stanford_dogs_cropped
@@ -26,12 +29,10 @@ candidates:
 
 attack:
   batch_size: 5
-  num_epochs: 100
   targets: all
   discriminator_loss_weight: 0.0
   single_w: true
   clip: false
-  augmentation_num: 0
   transformations:
     Resize:
       size: 224
@@ -48,24 +49,9 @@ attack:
       weight_decay: 0
       betas: [0.1, 0.1]
 
-# 中间层相关
 intermediate:
   start: 0
   end: 7
   steps: [100,10,10,10,10,10,10]
   max_radius_mid_vecor: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
   max_radius_w: [1000, 2000, 3000, 4000, 5000, 6000, 8000, 8000]
-
-final_selection:
-  samples_per_target: 50
-  approach: transforms
-  iterations: 100
-
-
-wandb: # Options for WandB logging.
-  enable_logging: true # Activate logging.
-  wandb_init_args: # WandB init arguments.
-    project: intermediate-MIA
-    entity: model-inversion
-    save_code: true
-    name: main-Stanford-AFHQ-resnet152-all

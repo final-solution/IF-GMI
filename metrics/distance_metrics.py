@@ -7,7 +7,7 @@ from datasets.stanford_dogs import StanfordDogs
 from torch.utils.data import DataLoader
 from torch.utils.data.dataset import TensorDataset
 from torchvision.transforms.transforms import Resize
-from utils_intermediate.stylegan import create_image
+from utils.stylegan import create_image
 
 
 class DistanceEvaluation():

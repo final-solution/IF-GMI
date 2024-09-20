@@ -16,7 +16,7 @@ import numpy as np
 import pytorch_fid.fid_score
 import torch
 from pytorch_fid.inception import InceptionV3
-from utils_intermediate.stylegan import create_image
+from utils.stylegan import create_image
 
 IMAGE_EXTENSIONS = ('bmp', 'jpg', 'jpeg', 'pgm', 'png', 'ppm',
                     'tif', 'tiff', 'webp')
@@ -62,11 +62,6 @@ class FID_Score:
     def compute_fid(self, layer, rtpt=None):
         self.compute_statistics(self.dataset_1, rtpt)
         self.compute_statistics(self.dataset_2, layer, rtpt, fake=True)
-        # m1, s1 = self.compute_statistics(self.dataset_1, rtpt)
-        # m2, s2 = self.compute_statistics(self.dataset_2, rtpt, True)
-        # fid_value = pytorch_fid.fid_score.calculate_frechet_distance(
-        #     m1, s1, m2, s2)
-        # return fid_value
 
     # 计算FID
     def compute_statistics(self, dataset, layer=None, rtpt=None, fake=False):

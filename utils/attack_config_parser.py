@@ -6,12 +6,10 @@ import torch
 import torch.optim as optim
 import torchvision.transforms as T
 import yaml
-from attacks_intermediate.initial_selection import find_initial_w
-from matplotlib.pyplot import fill
+from attacks.initial_selection import find_initial_w
 from models.classifier import Classifier
 
 import wandb
-from utils_intermediate.wandb import load_model
 
 
 class AttackConfigParser:
@@ -25,9 +23,7 @@ class AttackConfigParser:
         self._config = config
 
     def create_target_model(self):
-        if 'wandb_target_run' in self._config:
-            model = load_model(self._config['wandb_target_run'])
-        elif 'target_model' in self._config:
+        if 'target_model' in self._config:
             config = self._config['target_model']
             model = Classifier(num_classes=config['num_classes'],
                                architecture=config['architecture'])
@@ -41,9 +37,7 @@ class AttackConfigParser:
         return model, config['architecture']
 
     def create_augmented_models(self, index):
-        if 'wandb_target_run' in self._config:
-            model = load_model(self._config['wandb_target_run'])
-        elif 'augmented_models' in self._config:
+        if 'augmented_models' in self._config:
             config = self._config['augmented_models']
             model = Classifier(num_classes=config['num_classes'],
                                architecture=config['architecture'][index])
@@ -66,9 +60,7 @@ class AttackConfigParser:
             return self._config['dataset']
 
     def create_evaluation_model(self):
-        if 'wandb_evaluation_run' in self._config:
-            evaluation_model = load_model(self._config['wandb_evaluation_run'])
-        elif 'evaluation_model' in self._config:
+        if 'evaluation_model' in self._config:
             config = self._config['evaluation_model']
             evaluation_model = Classifier(num_classes=config['num_classes'],
                                           architecture=config['architecture'])
@@ -96,22 +88,6 @@ class AttackConfigParser:
             optimizer = optimizer_class(params, **args)
             break
         return optimizer
-
-    def create_lr_scheduler(self, optimizer):
-        if not 'lr_scheduler' in self._config['attack']:
-            return None
-
-        scheduler_config = self._config['attack']['lr_scheduler']
-        for scheduler_type, args in scheduler_config.items():
-            if not hasattr(optim.lr_scheduler, scheduler_type):
-                raise Exception(
-                    f'{scheduler_type} is no valid learning rate scheduler. Please write the type exactly as the PyTorch class.'
-                )
-
-            scheduler_class = getattr(optim.lr_scheduler, scheduler_type)
-            scheduler_instance = scheduler_class(optimizer, **args)
-            break
-        return scheduler_instance
 
     def create_candidates(self, generator, target_model, targets):
         candidate_config = self._config['candidates']
@@ -141,7 +117,6 @@ class AttackConfigParser:
     def create_target_vector(self):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         attack_config = self._config['attack']
-        targets = None
         target_classes = attack_config['targets']
         num_candidates = self._config['candidates']['num_candidates']
         if type(target_classes) is list:
@@ -161,14 +136,12 @@ class AttackConfigParser:
         targets = targets.to(device)
         return targets
 
-    def create_wandb_config(self):
-        for _, args in self.optimizer.items():
-            lr = args['lr']
-            break
+    def create_saved_config(self):
+        lr = self.optimizer['Adam']['lr']
 
         tmp = self.attack['targets']
         self.attack['targets'] = len(tmp)
-        config = {
+        saved_config = {
             **self.attack, **self.intermediate,
             **self.candidates,
             'GAN model': self.stylegan_model,
@@ -176,16 +149,11 @@ class AttackConfigParser:
             'result path': self.result_path,
             'optimizer': self.optimizer,
             'lr': lr,
-            'use_scheduler': 'lr_scheduler' in self._config,
-            'target_architecture': self.model.architecture,
-            'target_extended': self.model.wandb_name,
-            'enable final selection': 'final_selection' in self._config
+            'target_architecture': self.model.architecture
         }
-        if 'lr_scheduler' in self._config:
-            config['lr_scheduler'] = self.lr_scheduler
         self.attack['targets'] = tmp
 
-        return config
+        return saved_config
 
     def create_attack_transformations(self):
         transformation_list = []
@@ -213,16 +181,8 @@ class AttackConfigParser:
         return self._config['candidates']
 
     @property
-    def wandb_target_run(self):
-        return self._config['wandb_target_run']
-
-    @property
     def logging(self):
-        return self._config['wandb']['enable_logging']
-
-    @property
-    def wandb_init_args(self):
-        return self._config['wandb']['wandb_init_args']
+        return self._config['logging']
 
     @property
     def attack(self):
@@ -233,16 +193,12 @@ class AttackConfigParser:
         return self._config['attack']['targets']
 
     @property
-    def wandb(self):
-        return self._config['wandb']
+    def name(self):
+        return self._config['name']
 
     @property
     def optimizer(self):
         return self._config['attack']['optimizer']
-
-    @property
-    def lr_scheduler(self):
-        return self._config['attack']['lr_scheduler']
 
     @property
     def intermediate(self):

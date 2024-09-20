@@ -9,7 +9,7 @@ from pytorch_fid.inception import InceptionV3
 sys.path.insert(0, '/workspace')
 
 
-class PRCD:
+class PRDC:
     def __init__(self, layer_num, device, crop_size=None, batch_size=128, dims=2048, num_workers=16, gpu_devices=[]):
         self.batch_size = batch_size
         self.dims = dims

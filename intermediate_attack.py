@@ -14,18 +14,16 @@ import numpy as np
 import time
 import torch
 import torchvision.transforms as T
-import wandb
 from facenet_pytorch import InceptionResnetV1
 from rtpt import RTPT
 from torch.utils.data import TensorDataset
 
-from attacks.final_selection import perform_final_selection
 from attacks.optimize import Optimization
 from datasets.custom_subset import ClassSubset
 from metrics.classification_acc import ClassificationAccuracy
 from metrics.fid_score import FID_Score
 from metrics.distance_metrics import DistanceEvaluation
-from metrics.prcd import PRCD
+from metrics.prdc import PRDC
 from utils.logger import Tee
 from utils.logger import Tee
 from utils.attack_config_parser import AttackConfigParser
@@ -47,7 +45,7 @@ def main():
 
     # Set devices
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '4'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
@@ -121,7 +119,7 @@ def main():
                                   num_workers=8,
                                   gpu_devices=gpu_devices)
 
-    prcd = PRCD(layer_num,
+    prdc = PRDC(layer_num,
                    device=device,
                    crop_size=crop_size,
                    batch_size=batch_size * 3,
@@ -158,28 +156,28 @@ def main():
     #              Attack              #
     ####################################
 
-    # Create initial style vectors: 执行初始筛选
-    w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
+    # Create initial style vectors
+    w = create_initial_vectors(config, G, target_model, targets,
                                              device)
     del G
 
-    # Initialize wandb logging: 使用wandb的日志记录操作
+    # Initialize logging
     result_path = config.path
     if config.logging:
-        optimizer = config.create_optimizer(params=[w])
-        wandb_run, save_config = init_wandb_logging(optimizer, target_model_name, config,
-                                                    args)
-        run_id = wandb_run.id
+        save_config = config.create_saved_config()
+        run_id = now_time
         result_path = os.path.join(config.path, run_id)
         Path(f"{result_path}").mkdir(parents=True, exist_ok=True)
         save_dict_to_yaml(
-            save_config, f"{result_path}/{config.wandb['wandb_init_args']['name']}.yaml")
-        tee = Tee(f'{result_path}/inter_{now_time}.log', 'w')
-        print(f'初始空闲内存:{(init_mem / (1024**3)):.4f}GB')
-        print('使用的GAN路径: ', config.stylegan_model)
+            save_config, f"{result_path}/{config.name}.yaml")
+        tee = Tee(f'{result_path}/exp_{now_time}.log', 'w')
+        print(f'initial free memory:{(init_mem / (1024**3)):.4f}GB')
+        print('path of GAN: ', config.stylegan_model)
         print('target model: ', target_name)
         print('target dataset: ', config.dataset.lower())
         print('evaluation model: ', eval_name)
+        init_w_path = f"{result_path}/init_w_{run_id}.pt"
+        torch.save(w.detach(), init_w_path)
 
 
     # Print attack configuration: 打印攻击参数设置
@@ -198,43 +196,35 @@ def main():
     if args.rtpt:
         max_iterations = math.ceil(w.shape[0] / batch_size) \
             + int(math.ceil(w.shape[0] / (batch_size * 3))) \
-            + 2 * int(math.ceil(config.final_selection['samples_per_target'] * len(set(targets.cpu().tolist())) / (batch_size * 3))) \
+            + 2 * int(math.ceil(config.candidates['num_candidates'] * len(set(targets.cpu().tolist())) / (batch_size * 3))) \
             + 2 * len(set(targets.cpu().tolist()))
-        rtpt = RTPT(name_initials='LS',
-                    experiment_name='Model_Inversion',
+        rtpt = RTPT(name_initials='IF-GMI',
+                    experiment_name='Model_Inversion_Attack',
                     max_iterations=max_iterations)
         rtpt.start()
 
-    # Log initial vectors: 记录选择出来的初始隐向量
-    if config.logging:
-        init_w_path = f"{result_path}/init_w_{run_id}.pt"
-        torch.save(w.detach(), init_w_path)
-        wandb.save(init_w_path, policy='now')
-
-    # Create attack transformations: 用到的数据增强方式
+    # Create attack transformations
     attack_transformations = config.create_attack_transformations()
     now_mem = psutil.virtual_memory().free
-    print(f'攻击准备后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+    print(f'free memory after attack preparation:{(now_mem / (1024**3)):.4f}GB')
     min_mem = min(now_mem, min_mem)
 
-    optimization = Optimization(target_model, augmented_models, synthesis, discriminator,
-                                attack_transformations, num_ws, config)
+    optimization = Optimization(target_model, synthesis, attack_transformations, num_ws, config)
 
-    # Collect results: 收集结果
-    w_optimized_unselected_all = {i: [] for i in range(layer_num)}
-    final_w_all = {i: [] for i in range(layer_num)}
+    # Prepare to collect results
+    w_optimized_all = {i: [] for i in range(layer_num)}
     final_targets_all = []
 
-    # 每个class分别迭代计算，减少内存消耗
-    for idx, target in enumerate(config.targets):
+    # iteratively compute each target class (reduce memory cost)
+    for idx in config.targets:
         num_candidates = config.candidates['num_candidates']
         optimization.flush_imgs()
 
         now_mem = psutil.virtual_memory().free
-        print(f'第{idx}轮攻击前的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        print(f'free memory before attacking {idx}:{(now_mem / (1024**3)):.4f}GB')
         min_mem = min(now_mem, min_mem)
 
-        # Prepare batches for attack：准备攻击的batch
+        # Prepare batches for attack
         for i in range(math.ceil(num_candidates / batch_size)):
             start_idx = idx * num_candidates + i * batch_size
             end_idx = min(start_idx + batch_size, (idx+1)*num_candidates)
@@ -244,7 +234,7 @@ def main():
                 f'\nOptimizing batch {i+1} of {math.ceil(num_candidates / batch_size)} targeting classes {set(targets_batch.cpu().tolist())}.'
             )
 
-            # Run attack iteration: 执行攻击
+            # Run attack iteration
             torch.cuda.empty_cache()
             optimization.optimize(w_batch, targets_batch)
 
@@ -253,46 +243,38 @@ def main():
                 rtpt.step(
                     subtitle=f'batch {i+1+idx*math.ceil(num_candidates / batch_size)} of {num_batches}')
 
-        # Concatenate optimized style vectors: 将没有最终筛选的优化结果拼在一起
-        w_optimized_unselected = optimization.intermediate_w
-        imgs_optimized_unselected = optimization.intermediate_imgs
-        for k, v in imgs_optimized_unselected.items():
-            imgs_optimized_unselected[k] = torch.cat(v, dim=0)
-        for k, v in w_optimized_unselected.items():
-            w_optimized_unselected[k] = torch.cat(v, dim=0)
-            w_optimized_unselected_all[k].append(w_optimized_unselected[k])
+        # Concatenate optimized style vectors
+        w_optimized = optimization.intermediate_w
+        imgs_optimized = optimization.intermediate_imgs
+        for k, v in imgs_optimized.items():
+            imgs_optimized[k] = torch.cat(v, dim=0)
+        for k, v in w_optimized.items():
+            w_optimized[k] = torch.cat(v, dim=0)
+            w_optimized_all[k].append(w_optimized[k])
 
         torch.cuda.empty_cache()
-        # del discriminator, synthesis
-        # synthesis = None
-
-        ####################################
-        #          Filter Results          #
-        ####################################
-
-        # Filter results: 执行最终阶段筛选
+        
+        # record results
         final_imgs = {}
         target_list = targets[idx*num_candidates:(idx+1)*num_candidates]
-        final_targets, final_w, final_imgs = target_list, w_optimized_unselected, imgs_optimized_unselected
+        final_targets, final_w, final_imgs = target_list, w_optimized, imgs_optimized
         final_targets_all.append(final_targets)
 
         now_mem = psutil.virtual_memory().free
-        print(f'第{idx}轮攻击后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        print(f'free memory after attacking {idx}: {(now_mem / (1024**3)):.4f}GB')
         min_mem = min(now_mem, min_mem)
 
         ####################################
         #         Attack Accuracy          #
         ####################################
-
-        # 计算acc指标
+        
         # Compute attack accuracy with evaluation model on all generated samples
         try:
-            # 计算准确率acc
-            print('计算acc')
+            print('calculate acc')
             for layer in range(layer_num):
                 class_acc_evaluator.compute_acc(
                     layer,
-                    imgs_optimized_unselected[layer],
+                    imgs_optimized[layer],
                     target_list,
                     config,
                     batch_size=batch_size * 2,
@@ -306,30 +288,24 @@ def main():
         #    FID Score and GAN Metrics     #
         ####################################
         target_list = target_list.cpu()
-        print('计算fid和prcd')
+        print('calculate fid and prdc')
         try:
             training_dataset = ClassSubset(
                 full_training_dataset,
-                target_classes=torch.unique(final_targets).cpu().tolist())
-            training_dataset_uf = ClassSubset(
-                full_training_dataset,
                 target_classes=torch.unique(target_list).cpu().tolist())
             for layer in range(layer_num):
-                # create datasets: 创建待使用的数据集
+                # create datasets
                 attack_dataset = TensorDataset(
-                    final_imgs[layer], final_targets)
-                attack_dataset.targets = final_targets
-                attack_dataset_uf = TensorDataset(
-                    imgs_optimized_unselected[layer], target_list)
-                attack_dataset_uf.targets = target_list
+                    imgs_optimized[layer], target_list)
+                attack_dataset.targets = target_list
 
-                # compute FID score: 计算fid指标
-                fid_evaluation.set(training_dataset_uf, attack_dataset_uf)
+                # compute FID score
+                fid_evaluation.set(training_dataset, attack_dataset)
                 fid_evaluation.compute_fid(layer, rtpt)
 
-                # compute precision, recall, density, coverage: 计算指标
-                prcd.set(training_dataset_uf, attack_dataset_uf)
-                prcd.compute_metric(
+                # compute precision, recall, density, coverage
+                prdc.set(training_dataset, attack_dataset)
+                prdc.compute_metric(
                     layer, int(target_list[0]), k=3, rtpt=rtpt)
 
         except Exception:
@@ -339,11 +315,11 @@ def main():
         #         Feature Distance         #
         ####################################
         try:
-            print('计算特征距离')
+            print('calculate feature distance')
             for layer in range(layer_num):
                 inception_dist.compute_dist(
                     layer,
-                    imgs_optimized_unselected[layer],
+                    imgs_optimized[layer],
                     target_list,
                     batch_size=batch_size_single * 5,
                     rtpt=rtpt)
@@ -357,7 +333,7 @@ def main():
                 for layer in range(layer_num):
                     facenet_dist.compute_dist(
                         layer,
-                        imgs_optimized_unselected[layer],
+                        imgs_optimized[layer],
                         target_list,
                         batch_size=batch_size_single * 5,
                         rtpt=rtpt)
@@ -365,25 +341,25 @@ def main():
             print(traceback.format_exc())
 
         now_mem = psutil.virtual_memory().free
-        print(f'第{idx}轮攻击后,计算各指标后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
+        print(f'free memory when evaluation {idx}: {(now_mem / (1024**3)):.4f}GB')
         min_mem = min(now_mem, min_mem)
 
-    print(f'最多使用内存:{((init_mem-min_mem) / (1024**3)):.4f}GB')
+    print(f'maxima occupied memory:{((init_mem-min_mem) / (1024**3)):.4f}GB')
 
-    # 处理最终结果
+    # aggregate
     for k in range(layer_num):
-        w_optimized_unselected_all[k] = torch.cat(
-            w_optimized_unselected_all[k], dim=0)
+        w_optimized_all[k] = torch.cat(
+            w_optimized_all[k], dim=0)
 
     ####################################
     #          Finish Logging          #
     ####################################
     if config.logging:
+        print('Finishing attack, logging results and creating sample images.')
         optimized_w_path = f"{result_path}/optimized_w_{run_id}.pt"
-        torch.save(w_optimized_unselected_all, optimized_w_path)
-        wandb.save(optimized_w_path, policy='now')
+        torch.save(w_optimized_all, optimized_w_path)
 
-        # 记录acc相关结果
+        # save accuracy
         best_layer_result = [0]
         for i in range(layer_num):
             acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator.get_compute_result(i,
@@ -392,47 +368,47 @@ def main():
                 best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
                                      avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
             print(
-                f'Unfiltered Evaluation of {w_optimized_unselected_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
+                f'Evaluation of {w_optimized_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
                 f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
             )
         try:
-            filename_precision = write_precision_list(
-                f'{result_path}/precision_list_unfiltered_{run_id}',
+            write_precision_list(
+                f'{result_path}/precision_list_best_{run_id}',
                 best_layer_result[-2]
             )
-            wandb.save(filename_precision, policy='now')
         except:
             pass
         best_layer = best_layer_result[-1]
         print(
-            f'Unfiltered Evaluation of {w_optimized_unselected_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
+            f'Evaluation of {w_optimized_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
 
-        # 记录fid和prcd相关结果
+        # save fid and prdc
         for i in range(layer_num):
             fid_score = fid_evaluation.get_fid(i)
-            precision, recall, density, coverage = prcd.get_prcd(i)
-            print(f'Unfiltered metrics of layer {i}:')
+            precision, recall, density, coverage = prdc.get_prdc(i)
+            print(f'Evaluation metrics of layer {i}:')
             print(
-                f'\tFID score computed on {w_optimized_unselected_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
+                f'\tFID score computed on {w_optimized_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
             )
             print(
                 f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
             )
         print('\n')
-        # 记录两个特征距离
+        
+        # save feature distance
         mean_distances_lists = []
         for i in range(layer_num):
             avg_dist_inception, mean_distances_list = inception_dist.get_eval_dist(
                 i)
             mean_distances_lists.append(mean_distances_list)
-            print(f'Unfiltered mean Distance on Inception-v3 and layer {i}: ',
+            print(f'Mean Distance on Inception-v3 and layer {i}: ',
                   avg_dist_inception.cpu().item())
         try:
-            filename_distance = write_precision_list(
-                f'{result_path}/distance_inceptionv3_list_unfiltered_{run_id}',
-                mean_distances_lists[best_layer])
-            wandb.save(filename_distance, policy='now')
+            write_precision_list(
+                f'{result_path}/distance_inceptionv3_list_best_{run_id}',
+                mean_distances_lists[best_layer]
+            )
         except:
             pass
         
@@ -442,33 +418,30 @@ def main():
                 avg_dist_facenet, mean_distances_list = facenet_dist.get_eval_dist(
                     i)
                 mean_distances_lists.append(mean_distances_list)
-                print(f'Unfiltered mean Distance on FaceNet and layer {i}: ',
+                print(f'Mean Distance on FaceNet and layer {i}: ',
                     avg_dist_facenet.cpu().item())
             try:
-                filename_distance = write_precision_list(
-                    f'{result_path}/distance_facenet_list_unfiltered_{run_id}',
-                    mean_distances_lists[best_layer])
-                wandb.save(filename_distance, policy='now')
+                write_precision_list(
+                    f'{result_path}/distance_facenet_list_best_{run_id}',
+                    mean_distances_lists[best_layer]
+                    )
             except:
                 pass
 
-        # 记录所用时间
+        # save time
         end_time = time.perf_counter()
         with open(f'{result_path}/time.txt', 'w') as file:
-            file.write(f'运行时间：{end_time-start_time}秒')
-
-    exit()
+            file.write(f'running time: {end_time-start_time} seconds')
 
     if rtpt:
         rtpt.step(subtitle=f'Finishing up')
 
-    # Logging of final results: 记录最终结果
+    exit()
+    # Logging of final images
     if config.logging:
-        print('Finishing attack, logging results and creating sample images.')
         num_classes = 10
         num_imgs = 8
 
-        # 从第一个和最后一个类别中采样最终图片
         # Sample final images from the first and last classes
         label_subset = set(
             list(set(targets.tolist()))[:int(num_classes / 2)] +
@@ -479,20 +452,14 @@ def main():
         log_max_confidences = []
         log_target_confidences = []
 
-        # 记录具有最小特征距离的图片
         # Log images with smallest feature distance
         for label in label_subset:
             mask = torch.where(final_targets == label, True, False)
-            # w_masked = final_w[mask][:num_imgs]
-            # imgs = create_image(w_masked,
-            #                     synthesis,
-            #                     crop_size=config.attack_center_crop,
-            #                     resize=config.attack_resize)
             imgs_masked = final_imgs[best_layer][mask][:num_imgs]
             imgs = create_image(
                 imgs_masked, crop_size=config.attack_center_crop, resize=config.attack_resize)
             log_imgs.append(imgs)
-            log_targets += [label for i in range(num_imgs)]
+            log_targets += [label for _ in range(num_imgs)]
             log_predictions.append(torch.tensor(
                 best_layer_result[2])[mask][:num_imgs])
             log_max_confidences.append(
@@ -576,10 +543,7 @@ def create_initial_vectors(config, G, target_model, targets, device):
         w = config.create_candidates(G, target_model, targets).cpu()
         if config.attack['single_w']:
             w = w[:, 0].unsqueeze(1)
-        w_init = deepcopy(w)
-        x = None
-        V = None
-    return w, w_init, x, V
+    return w
 
 
 def write_precision_list(filename, precision_list):
@@ -627,18 +591,6 @@ def log_attack_progress(loss,
 def save_dict_to_yaml(dict_value: dict, save_path: str):
     with open(save_path, 'w') as file:
         file.write(yaml.dump(dict_value, allow_unicode=True))
-
-
-def init_wandb_logging(optimizer, target_model_name, config, args):
-    lr = optimizer.param_groups[0]['lr']
-    optimizer_name = type(optimizer).__name__
-    if not 'name' in config.wandb['wandb_init_args']:
-        config.wandb['wandb_init_args'][
-            'name'] = f'{optimizer_name}_{lr}_{target_model_name}'
-    wandb_config = config.create_wandb_config()
-    run = wandb.init(config=wandb_config, **config.wandb['wandb_init_args'])
-    wandb.save(args.config, policy='now')
-    return run, wandb_config
 
 
 def intermediate_wandb_logging(optimizer, targets, confidences, loss,

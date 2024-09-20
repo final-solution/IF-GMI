@@ -9,7 +9,8 @@ def change(path, name):
 
 
 if __name__ == '__main__':
+    # modify the source .pkl to .pth
     sys.path.append('stylegan2_intermediate')
-    path = 'stylegan2_intermediate/afhqdog.pkl'
-    name = 'afhq_G.pth'
+    path = 'stylegan2_intermediate/xxx.pkl'
+    name = 'xxx.pth'
     change(path=path, name=name)

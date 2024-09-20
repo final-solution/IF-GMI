@@ -1,11 +1,8 @@
 from losses.poincare import poincare_loss
 from utils.stylegan import project_onto_l1_ball
-import math
 
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class Optimization():
@@ -16,7 +13,7 @@ class Optimization():
         self.transformations = transformations
         self.num_ws = num_ws
         self.clip = config.attack['clip']
-        self.mid_vector = [None]      # 中间层的向量
+        self.mid_vector = [None]
         self.intermediate_imgs = {i:[] for i in range(len(config.intermediate['steps']))}
         self.intermediate_w = {i:[] for i in range(len(config.intermediate['steps']))}
     
@@ -28,7 +25,7 @@ class Optimization():
         print("-------------start intermidiate space search---------------")
         self.mid_vector = [None]
 
-        # 每一轮就是搜一层
+        # one layer in each iteration
         for i, steps in enumerate(self.config.intermediate['steps']):
             torch.cuda.empty_cache()
             start_layer = i + self.config.intermediate['start']
@@ -39,12 +36,10 @@ class Optimization():
             self.intermediate_imgs[i].append(imgs)
             self.intermediate_w[i].append(w_batch.detach().cpu())
 
-    # 定义中间层搜索一层的函数
+    # optimize one layer
     def intermediate(self, w, start_layer, targets_batch, steps, index):
         print(
             f'---------search Layer {start_layer} in {steps} iterations---------')
-
-        # 中间层搜索前的准备工作
         with torch.no_grad():
             if start_layer == 0:
                 var_list = [w.requires_grad_()]
@@ -58,11 +53,11 @@ class Optimization():
             self.synthesis.module.set_layer(
                 start_layer, self.config.intermediate['end'])
 
-        # 设置优化器
+        # set optimizer
         optimizer = self.config.create_optimizer(params=var_list)
         origin_imgs = None
 
-        # 开始中间层搜索
+        # search begins
         for i in range(steps):
             imgs = self.synthesize(
                 w, layer_in=self.mid_vector[-1], num_ws=self.num_ws)
@@ -84,7 +79,7 @@ class Optimization():
             loss.backward()
             optimizer.step()
 
-            # 限制在L1球内，包括中间层和w-space隐向量
+            # limit to the L1 ball
             if start_layer != 0 and self.config.intermediate['max_radius_mid_vecor'][index] > 0:
                 deviation = project_onto_l1_ball(self.mid_vector[-1] - prev_mid_vector,
                                                  self.config.intermediate['max_radius_mid_vecor'][index])
@@ -108,8 +103,6 @@ class Optimization():
                         f'mean_conf={mean_conf:.4f}'
                     )
                         
-
-        # 搜索完成，为下一层的搜索做准备
         with torch.no_grad():
             self.synthesis.module.set_layer(start_layer, start_layer)
             w_expanded = torch.repeat_interleave(w,
@@ -128,10 +121,8 @@ class Optimization():
 
         return origin_imgs, w.detach()
 
-    # 中间层搜索用的图片合成函数
     def synthesize(self, w, layer_in, num_ws):
         if w.shape[1] == 1:
-            # 先扩展w
             w_expanded = torch.repeat_interleave(w,
                                                  repeats=num_ws,
                                                  dim=1)
@@ -143,19 +134,6 @@ class Optimization():
             imgs = self.synthesis(w, layer_in=layer_in,
                                   noise_mode='const', force_fp32=True)
         return imgs
-
-    # def synthesize(self, w, num_ws):
-    #     if w.shape[1] == 1:
-    #         # 先扩展w
-    #         w_expanded = torch.repeat_interleave(w,
-    #                                              repeats=num_ws,
-    #                                              dim=1)
-    #         imgs = self.synthesis(w_expanded,
-    #                               noise_mode='const',
-    #                               force_fp32=True)
-    #     else:
-    #         imgs = self.synthesis(w, noise_mode='const', force_fp32=True)
-    #     return imgs
 
     def clip_images(self, imgs):
         lower_limit = torch.tensor(-1.0).float().to(imgs.device)

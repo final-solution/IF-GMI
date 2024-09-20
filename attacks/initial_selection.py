@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import torchvision.transforms.functional as F
 from tqdm import tqdm
-from utils.stylegan import adjust_gen_images
 
 
 def find_initial_w(generator,

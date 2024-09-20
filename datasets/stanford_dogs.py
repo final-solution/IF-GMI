@@ -1,6 +1,5 @@
 from torchvision.datasets import ImageFolder
-import torch
-from torch.utils.data import Dataset, ConcatDataset, Subset
+from torch.utils.data import Dataset
 import os
 import numpy as np
 import scipy.io

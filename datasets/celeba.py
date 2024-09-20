@@ -1,4 +1,3 @@
-from torchvision.datasets import CelebA
 from torch.utils.data import Dataset, Subset
 from collections import Counter
 import torchvision.transforms as T
@@ -17,8 +16,7 @@ class CelebA1000(Dataset):
                  train,
                  split_seed=42,
                  transform=None,
-                 root='data/celeba',
-                 download: bool = False):
+                 root='data/celeba'):
         # Load default CelebA dataset
         celeba = CustomCelebA(root=root,
                         split='all',

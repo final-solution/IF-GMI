@@ -1,5 +1,5 @@
 from losses.poincare import poincare_loss
-from utils_intermediate.stylegan import project_onto_l1_ball
+from utils.stylegan import project_onto_l1_ball
 import math
 
 import numpy as np
@@ -9,15 +9,11 @@ import torch.nn.functional as F
 
 
 class Optimization():
-    def __init__(self, target_model, augmented_models, synthesis, discriminator, transformations, num_ws, config):
+    def __init__(self, target_model, synthesis, transformations, num_ws, config):
         self.synthesis = synthesis
         self.target = target_model
-        self.augmentations = augmented_models
-        self.discriminator = discriminator
         self.config = config
         self.transformations = transformations
-        self.discriminator_weight = self.config.attack['discriminator_loss_weight']
-        self.augment = self.config.attack['augmentation_num']
         self.num_ws = num_ws
         self.clip = config.attack['clip']
         self.mid_vector = [None]      # 中间层的向量
@@ -73,13 +69,6 @@ class Optimization():
                 w, layer_in=self.mid_vector[-1], num_ws=self.num_ws)
             origin_imgs = imgs.detach().cpu()
 
-            # compute discriminator loss
-            if self.discriminator_weight > 0:
-                discriminator_loss = self.compute_discriminator_loss(
-                    imgs)
-            else:
-                discriminator_loss = torch.tensor(0.0)
-
             # perform image transformations
             if self.clip:
                 imgs = self.clip_images(imgs)
@@ -88,28 +77,11 @@ class Optimization():
 
             # Compute target loss
             outputs = self.target(imgs)
-            target_loss = poincare_loss(
+            loss = poincare_loss(
                 outputs, targets_batch).mean()
-            # target_loss = F.nll_loss(outputs, targets_batch, reduction='mean')
 
-            # 计算增强模型的identity loss
-            augment_loss = torch.tensor(0.0).cuda()
-            if self.augment > 0:
-                for index in range(self.augment):
-                    augment_outputs = self.augmentations[index](imgs)
-                    augment_loss += poincare_loss(
-                        augment_outputs, targets_batch).mean()
-                    # augment_loss += F.nll_loss(augment_outputs, targets_batch, reduction='mean')
-
-            # combine losses and compute gradients
+            # Compute gradients
             optimizer.zero_grad()
-            if self.augment > 0:
-                gamma_t = 1.0 / (self.augment+1)
-                gamma_aug = gamma_t
-                loss = (gamma_t*target_loss + gamma_aug*augment_loss) + \
-                    discriminator_loss * self.discriminator_weight
-            else:
-                loss = target_loss + discriminator_loss * self.discriminator_weight
             loss.backward()
             optimizer.step()
 
@@ -136,8 +108,7 @@ class Optimization():
 
                 if torch.cuda.current_device() == 0 and (i+1) % 10 == 0:
                     print(
-                        f'iteration {i}: \t total_loss={loss:.4f} \t target_loss={target_loss:.4f} \t',
-                        f'discriminator_loss={discriminator_loss:.4f} \t augment_loss={augment_loss:.4f} \t',
+                        f'iteration {i}: \t total_loss={loss:.4f} \t',
                         f'mean_conf={mean_conf:.4f}'
                     )
                     # if self.config.intermediate['max_radius_w'][index] > 0:

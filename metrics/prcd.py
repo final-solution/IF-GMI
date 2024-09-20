@@ -1,4 +1,4 @@
-from utils_intermediate.stylegan import create_image
+from utils.stylegan import create_image
 from datasets.custom_subset import SingleClassSubset
 import sys
 

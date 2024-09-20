@@ -11,6 +11,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
+import time
 import torch
 import torchvision.transforms as T
 import wandb
@@ -23,109 +24,76 @@ from attacks.optimize import Optimization
 from datasets.custom_subset import ClassSubset
 from metrics.classification_acc import ClassificationAccuracy
 from metrics.fid_score import FID_Score
+from metrics.distance_metrics import DistanceEvaluation
 from metrics.prcd import PRCD
 from utils.logger import Tee
 from utils.logger import Tee
 from utils.attack_config_parser import AttackConfigParser
 from utils.datasets import (create_target_dataset, get_facescrub_idx_to_class,
                                          get_stanford_dogs_idx_to_class)
-from utils.stylegan import create_image, load_discrimator, load_generator
-from utils.wandb import *
-
-os.environ["WANDB_MODE"] = "offline"
+from utils.stylegan import create_image, load_generator
 
 
 def main():
     ####################################
     #        Attack Preparation        #
     ####################################
-
-    import time
+    
+    # Record running time and occupied memory
     start_time = time.perf_counter()
-
     now_time = time.strftime('%Y%m%d_%H%M', time.localtime(time.time()))
     init_mem = psutil.virtual_memory().free
     min_mem = init_mem
 
-    # Set devices: 设备驱动
+    # Set devices
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '2,3'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 
-    # Define and parse attack arguments: 参数管理
+    # Define and parse attack arguments
     parser = create_parser()
     config, args = parse_arguments(parser)
     layer_num = len(config.intermediate['steps'])
 
-    # Set seeds: 随机种子
+    # Set seeds
     torch.manual_seed(config.seed)
     random.seed(config.seed)
     np.random.seed(config.seed)
 
-    # Load idx to class mappings: 加载目标类别
+    # Load idx to class mappings
     idx_to_class = None
     if config.dataset.lower() == 'facescrub':
         idx_to_class = get_facescrub_idx_to_class()
     elif config.dataset.lower() == 'stanford_dogs':
         idx_to_class = get_stanford_dogs_idx_to_class()
     else:
-
         class KeyDict(dict):
-
             def __missing__(self, key):
                 return key
-
         idx_to_class = KeyDict()
 
-    # Load pre-trained StyleGan2 components: 加载预训练GAN
+    # Load pre-trained StyleGan2 generator
     G = load_generator(config.stylegan_model)
-    # D = load_discrimator(config.stylegan_model)
     num_ws = G.num_ws
 
-    # Load target model and set dataset: 加载目标模型与数据集
-    target_model, target_name = config.create_target_model()
+    # Load target model and dataset
     target_model, target_name = config.create_target_model()
     target_model_name = target_model.name
     target_dataset = config.get_target_dataset()
 
-    # Load augmented models: 加载增强模型，用于克服过拟合
-    aug_num = config.attack['augmentation_num']
-    augmented_models = []
-    augmented_models_name = []
-    for i in range(aug_num):
-        augmented_model = config.create_augmented_models(i)
-        augmented_model_name = augmented_model.name
-        augmented_models.append(augmented_model)
-        augmented_models_name.append(augmented_model_name)
-
-    # Distribute models: 设置为分布式部署在多个GPU上
+    # Distribute models in multiple GPUs
     target_model = torch.nn.DataParallel(target_model, device_ids=gpu_devices)
     target_model.name = target_model_name
-    for i in range(aug_num):
-        augmented_models[i] = torch.nn.DataParallel(
-            augmented_models[i], device_ids=gpu_devices)
-        augmented_models[i].name = augmented_models_name[i]
     synthesis = torch.nn.DataParallel(G.synthesis, device_ids=gpu_devices)
     synthesis.num_ws = num_ws
-    # discriminator = torch.nn.DataParallel(D, device_ids=gpu_devices)
-    discriminator = None
 
-    # Load basic attack parameters: 加载基础攻击参数
+    # Load basic attack parameters
     batch_size_single = config.attack['batch_size']
     batch_size = config.attack['batch_size'] * len(gpu_devices)
     targets = config.create_target_vector()
-
-    # 加载评价模型Incv3
-    evaluation_model, eval_name = config.create_evaluation_model()
-    evaluation_model = torch.nn.DataParallel(evaluation_model)
-    evaluation_model.to(device)
-    evaluation_model.eval()
-    class_acc_evaluator = ClassificationAccuracy(evaluation_model,
-                                                 layer_num=layer_num,
-                                                 device=device)
-
-    # set transformations: 设置图片变换方式
+    
+    # set transformations for images
     crop_size = config.attack_center_crop
     target_transform = T.Compose([
         T.ToTensor(),
@@ -133,10 +101,19 @@ def main():
         T.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
 
-    # 加载FID、PRCD计算所需模型
+    # Load evaluation model Incv3
+    evaluation_model, eval_name = config.create_evaluation_model()
+    evaluation_model = torch.nn.DataParallel(evaluation_model, device_ids=gpu_devices)
+    evaluation_model.to(device)
+    evaluation_model.eval()
+    class_acc_evaluator = ClassificationAccuracy(evaluation_model,
+                                                 layer_num=layer_num,
+                                                 device=device)
+
+    # Load models for FID and PRDC
     full_training_dataset = create_target_dataset(target_dataset,
                                                   target_transform)
-    fid_evaluation_uf = FID_Score(layer_num,
+    fid_evaluation = FID_Score(layer_num,
                                   device=device,
                                   crop_size=crop_size,
                                   batch_size=batch_size * 3,
@@ -144,7 +121,7 @@ def main():
                                   num_workers=8,
                                   gpu_devices=gpu_devices)
 
-    prcd_uf = PRCD(layer_num,
+    prcd = PRCD(layer_num,
                    device=device,
                    crop_size=crop_size,
                    batch_size=batch_size * 3,
@@ -152,7 +129,7 @@ def main():
                    num_workers=8,
                    gpu_devices=gpu_devices)
 
-    # Load Inception-v3 evaluation model and remove final layer: 加载评估模型用于距离计算
+    # Load Inception-v3 evaluation model and remove final layer
     evaluation_model_dist, _ = config.create_evaluation_model()
     evaluation_model_dist.model.fc = torch.nn.Sequential()
     evaluation_model_dist = torch.nn.DataParallel(evaluation_model_dist,
@@ -160,57 +137,31 @@ def main():
     evaluation_model_dist.to(device)
     evaluation_model_dist.eval()
 
-    evaluate_inception_uf = DistanceEvaluation(
+    inception_dist = DistanceEvaluation(
         layer_num, evaluation_model_dist,
         299,
         config.attack_center_crop,
         target_dataset, config.seed)
 
-    # Load FaceNet model for face recognition: 加载面部识别用的模型用以计算特征距离
+    # Load FaceNet model for face recognition
     facenet = InceptionResnetV1(pretrained='vggface2')
     facenet = torch.nn.DataParallel(
         facenet, device_ids=gpu_devices)
     facenet.to(device)
     facenet.eval()
 
-    evaluater_facenet_uf = DistanceEvaluation(layer_num, facenet, 160,
+    facenet_dist = DistanceEvaluation(layer_num, facenet, 160,
                                               config.attack_center_crop,
                                               target_dataset, config.seed)
+
+    ####################################
+    #              Attack              #
+    ####################################
 
     # Create initial style vectors: 执行初始筛选
     w, w_init, x, V = create_initial_vectors(config, G, target_model, targets,
                                              device)
     del G
-
-    # 是否启用后选择
-    enable_final_selection = False
-    if config.candidates['num_candidates'] != config.final_selection['samples_per_target']:
-        class_acc_evaluator_selected = ClassificationAccuracy(evaluation_model,
-                                                              layer_num=layer_num,
-                                                              device=device)
-        fid_evaluation = FID_Score(layer_num,
-                                   device=device,
-                                   crop_size=crop_size,
-                                   batch_size=batch_size * 3,
-                                   dims=2048,
-                                   num_workers=8,
-                                   gpu_devices=gpu_devices)
-        prcd = PRCD(layer_num,
-                    device=device,
-                    crop_size=crop_size,
-                    batch_size=batch_size * 3,
-                    dims=2048,
-                    num_workers=8,
-                    gpu_devices=gpu_devices)
-        evaluate_inception = DistanceEvaluation(
-            layer_num, evaluation_model_dist,
-            299,
-            config.attack_center_crop,
-            target_dataset, config.seed)
-        evaluater_facenet = DistanceEvaluation(layer_num, facenet, 160,
-                                               config.attack_center_crop,
-                                               target_dataset, config.seed)
-        enable_final_selection = True
 
     # Initialize wandb logging: 使用wandb的日志记录操作
     result_path = config.path
@@ -266,9 +217,6 @@ def main():
     print(f'攻击准备后的空闲内存:{(now_mem / (1024**3)):.4f}GB')
     min_mem = min(now_mem, min_mem)
 
-    ####################################
-    #         Attack Iteration         #
-    ####################################
     optimization = Optimization(target_model, augmented_models, synthesis, discriminator,
                                 attack_transformations, num_ws, config)
 
@@ -325,28 +273,7 @@ def main():
         # Filter results: 执行最终阶段筛选
         final_imgs = {}
         target_list = targets[idx*num_candidates:(idx+1)*num_candidates]
-        if enable_final_selection:
-            print(
-                f'\nSelect final set of max. {config.final_selection["samples_per_target"]} ',
-                f'images per target using {config.final_selection["approach"]} approach.'
-            )
-            for j in range(layer_num):
-                final_w, final_targets, final_layer_imgs = perform_final_selection(
-                    w_optimized_unselected[j],
-                    imgs_optimized_unselected[j],
-                    config,
-                    target_list,
-                    target_model,
-                    device=device,
-                    batch_size=batch_size * 10,
-                    **config.final_selection,
-                    rtpt=rtpt)
-                final_imgs[j] = final_layer_imgs
-                final_w_all[j].append(final_w)
-            print(f'Selected a total of {final_w.shape[0]} final images ',
-                  f'of target classes {set(final_targets.cpu().tolist())}.')
-        else:
-            final_targets, final_w, final_imgs = target_list, w_optimized_unselected, imgs_optimized_unselected
+        final_targets, final_w, final_imgs = target_list, w_optimized_unselected, imgs_optimized_unselected
         final_targets_all.append(final_targets)
 
         now_mem = psutil.virtual_memory().free
@@ -371,18 +298,6 @@ def main():
                     batch_size=batch_size * 2,
                     resize=299,
                     rtpt=rtpt)
-
-            # Compute attack accuracy on filtered samples: 在筛选过的样本中计算acc
-            if enable_final_selection:
-                for layer in range(layer_num):
-                    class_acc_evaluator_selected.compute_acc(
-                        layer,
-                        final_imgs[layer],
-                        final_targets,
-                        config,
-                        batch_size=batch_size * 2,
-                        resize=299,
-                        rtpt=rtpt)
 
         except Exception:
             print(traceback.format_exc())
@@ -409,19 +324,13 @@ def main():
                 attack_dataset_uf.targets = target_list
 
                 # compute FID score: 计算fid指标
-                fid_evaluation_uf.set(training_dataset_uf, attack_dataset_uf)
-                fid_evaluation_uf.compute_fid(layer, rtpt)
+                fid_evaluation.set(training_dataset_uf, attack_dataset_uf)
+                fid_evaluation.compute_fid(layer, rtpt)
 
                 # compute precision, recall, density, coverage: 计算指标
-                prcd_uf.set(training_dataset_uf, attack_dataset_uf)
-                prcd_uf.compute_metric(
+                prcd.set(training_dataset_uf, attack_dataset_uf)
+                prcd.compute_metric(
                     layer, int(target_list[0]), k=3, rtpt=rtpt)
-                if enable_final_selection:
-                    fid_evaluation.set(training_dataset, attack_dataset)
-                    fid_evaluation.compute_fid(layer, rtpt)
-                    prcd.set(training_dataset, attack_dataset)
-                    prcd.compute_metric(
-                        layer, int(final_targets[0]), k=3, rtpt=rtpt)
 
         except Exception:
             print(traceback.format_exc())
@@ -432,19 +341,12 @@ def main():
         try:
             print('计算特征距离')
             for layer in range(layer_num):
-                evaluate_inception_uf.compute_dist(
+                inception_dist.compute_dist(
                     layer,
                     imgs_optimized_unselected[layer],
                     target_list,
                     batch_size=batch_size_single * 5,
                     rtpt=rtpt)
-                if enable_final_selection:
-                    evaluate_inception.compute_dist(
-                        layer,
-                        final_imgs[layer],
-                        final_targets,
-                        batch_size=batch_size_single * 5,
-                        rtpt=rtpt)
 
             # Compute feature distance only for facial images
             is_face = False
@@ -453,20 +355,12 @@ def main():
             ]:
                 is_face = True
                 for layer in range(layer_num):
-                    evaluater_facenet_uf.compute_dist(
+                    facenet_dist.compute_dist(
                         layer,
                         imgs_optimized_unselected[layer],
                         target_list,
                         batch_size=batch_size_single * 5,
                         rtpt=rtpt)
-                    if enable_final_selection:
-                        evaluater_facenet.compute_dist(
-                            layer,
-                            final_imgs[layer],
-                            final_targets,
-                            batch_size=batch_size_single * 5,
-                            rtpt=rtpt)
-
         except Exception:
             print(traceback.format_exc())
 
@@ -480,8 +374,6 @@ def main():
     for k in range(layer_num):
         w_optimized_unselected_all[k] = torch.cat(
             w_optimized_unselected_all[k], dim=0)
-        if enable_final_selection:
-            final_w_all[k] = torch.cat(final_w_all[k], dim=0)
 
     ####################################
     #          Finish Logging          #
@@ -490,13 +382,6 @@ def main():
         optimized_w_path = f"{result_path}/optimized_w_{run_id}.pt"
         torch.save(w_optimized_unselected_all, optimized_w_path)
         wandb.save(optimized_w_path, policy='now')
-
-        # Log selected vectors: 记录选择结果
-        if enable_final_selection:
-            optimized_w_path_selected = f"{result_path}/optimized_w_selected_{run_id}.pt"
-            torch.save(final_w_all, optimized_w_path_selected)
-            wandb.save(optimized_w_path_selected, policy='now')
-            wandb.config.update({'w_path': optimized_w_path})
 
         # 记录acc相关结果
         best_layer_result = [0]
@@ -522,36 +407,11 @@ def main():
         print(
             f'Unfiltered Evaluation of {w_optimized_unselected_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!'
         )
-        if enable_final_selection:
-            final_targets_all = torch.cat(final_targets_all, dim=0)
-            best_layer_result = [0]
-            for i in range(layer_num):
-                acc_top1, acc_top5, predictions, avg_correct_conf, avg_total_conf, target_confidences, maximum_confidences, precision_list = class_acc_evaluator_selected.get_compute_result(i,
-                                                                                                                                                                                             final_targets_all)
-                if acc_top1 > best_layer_result[0]:
-                    best_layer_result = [acc_top1, acc_top5, predictions, avg_correct_conf,
-                                         avg_total_conf, target_confidences, maximum_confidences, precision_list, i]
-                print(
-                    f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and layer {i}: \taccuracy@1={acc_top1:4f}',
-                    f', accuracy@5={acc_top5:4f}, correct_confidence={avg_correct_conf:4f}, total_confidence={avg_total_conf:4f}'
-                )
-            try:
-                filename_precision = write_precision_list(
-                    f'{result_path}/precision_list_filtered_{run_id}',
-                    best_layer_result[-2]
-                )
-                wandb.save(filename_precision, policy='now')
-            except:
-                pass
-            best_layer = best_layer_result[-1]
-            print(
-                f'Filtered Evaluation of {final_w_all[0].shape[0]} images on Inception-v3 and best layer is {best_layer}!\n\n'
-            )
 
         # 记录fid和prcd相关结果
         for i in range(layer_num):
-            fid_score = fid_evaluation_uf.get_fid(i)
-            precision, recall, density, coverage = prcd_uf.get_prcd(i)
+            fid_score = fid_evaluation.get_fid(i)
+            precision, recall, density, coverage = prcd.get_prcd(i)
             print(f'Unfiltered metrics of layer {i}:')
             print(
                 f'\tFID score computed on {w_optimized_unselected_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
@@ -559,22 +419,11 @@ def main():
             print(
                 f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
             )
-        if enable_final_selection:
-            for i in range(layer_num):
-                fid_score = fid_evaluation.get_fid(i)
-                precision, recall, density, coverage = prcd.get_prcd(i)
-                print(f'Filtered metrics of layer {i}:')
-                print(
-                    f'\tFID score computed on {final_w_all[0].shape[0]} attack samples and {config.dataset}: {fid_score:.4f}'
-                )
-                print(
-                    f' \tPrecision: {precision:.4f}, Recall: {recall:.4f}, Density: {density:.4f}, Coverage: {coverage:.4f}'
-                )
         print('\n')
         # 记录两个特征距离
         mean_distances_lists = []
         for i in range(layer_num):
-            avg_dist_inception, mean_distances_list = evaluate_inception_uf.get_eval_dist(
+            avg_dist_inception, mean_distances_list = inception_dist.get_eval_dist(
                 i)
             mean_distances_lists.append(mean_distances_list)
             print(f'Unfiltered mean Distance on Inception-v3 and layer {i}: ',
@@ -590,7 +439,7 @@ def main():
         if is_face:
             mean_distances_lists = []
             for i in range(layer_num):
-                avg_dist_facenet, mean_distances_list = evaluater_facenet_uf.get_eval_dist(
+                avg_dist_facenet, mean_distances_list = facenet_dist.get_eval_dist(
                     i)
                 mean_distances_lists.append(mean_distances_list)
                 print(f'Unfiltered mean Distance on FaceNet and layer {i}: ',
@@ -602,39 +451,6 @@ def main():
                 wandb.save(filename_distance, policy='now')
             except:
                 pass
-
-        if enable_final_selection:
-            mean_distances_lists = []
-            for i in range(layer_num):
-                avg_dist_inception, mean_distances_list = evaluate_inception.get_eval_dist(
-                    i)
-                mean_distances_lists.append(mean_distances_list)
-                print(f'Mean Distance on Inception-v3 and layer {i}: ',
-                      avg_dist_inception.cpu().item())
-            try:
-                filename_distance = write_precision_list(
-                    f'{result_path}/distance_inceptionv3_list_filtered_{run_id}',
-                    mean_distances_lists[best_layer])
-                wandb.save(filename_distance, policy='now')
-            except:
-                pass
-            
-            if is_face:
-                mean_distances_lists = []
-                for i in range(layer_num):
-                    avg_dist_facenet, mean_distances_list = evaluater_facenet.get_eval_dist(
-                        i)
-                    mean_distances_lists.append(mean_distances_list)
-                    print(f'Mean Distance on FaceNet and layer {i}: ',
-                        avg_dist_facenet.cpu().item())
-
-                try:
-                    filename_distance = write_precision_list(
-                        f'{result_path}/distance_facenet_list_filtered_{run_id}',
-                        mean_distances_lists[best_layer])
-                    wandb.save(filename_distance, policy='now')
-                except:
-                    pass
 
         # 记录所用时间
         end_time = time.perf_counter()
@@ -726,7 +542,7 @@ def main():
 
 def create_parser():
     parser = argparse.ArgumentParser(
-        description='Performing model inversion attack')
+        description='Performing attack')
     parser.add_argument('-c',
                         '--config',
                         default=None,

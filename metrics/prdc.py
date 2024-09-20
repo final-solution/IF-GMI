@@ -34,7 +34,7 @@ class PRDC:
         self.dataset_real = dataset_real
         self.dataset_fake = dataset_fake
 
-    def get_prcd(self, layer):
+    def get_prdc(self, layer):
         # Compute mean over targets
         # precision_list = torch.cat(self.precision_list[layer], dim=0)
         # recall_list = torch.cat(self.recall_list[layer], dim=0)

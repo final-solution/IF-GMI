@@ -9,6 +9,7 @@ evaluation_model:
   weights: pretrained/inception_v3_facescrub.pt # link to weight file
 
 logging: True
+logging_images: True
 name: FaceScrub-10
 stylegan_model: stylegan2_intermediate/ffhq_G.pth # Path to StyleGAN2 weight.
 seed: 42 # Seed used for splitting the datasets and initialize the attack.

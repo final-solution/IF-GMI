@@ -183,6 +183,10 @@ class AttackConfigParser:
     @property
     def logging(self):
         return self._config['logging']
+    
+    @property
+    def logging_images(self):
+        return self._config['logging_images']
 
     @property
     def attack(self):

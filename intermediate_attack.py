@@ -6,6 +6,7 @@ import random
 import traceback
 import yaml
 import psutil
+from torchvision.utils import save_image
 from collections import Counter
 from copy import deepcopy
 from pathlib import Path
@@ -255,7 +256,6 @@ def main():
         torch.cuda.empty_cache()
         
         # record results
-        final_imgs = {}
         target_list = targets[idx*num_candidates:(idx+1)*num_candidates]
         final_targets, final_w, final_imgs = target_list, w_optimized, imgs_optimized
         final_targets_all.append(final_targets)
@@ -343,6 +343,9 @@ def main():
         now_mem = psutil.virtual_memory().free
         print(f'free memory when evaluation {idx}: {(now_mem / (1024**3)):.4f}GB')
         min_mem = min(now_mem, min_mem)
+        
+        if config.logging_images:
+            log_images(config, result_path, evaluation_model, idx, layer_num, final_imgs, idx_to_class)
 
     print(f'maxima occupied memory:{((init_mem-min_mem) / (1024**3)):.4f}GB')
 
@@ -436,75 +439,30 @@ def main():
     if rtpt:
         rtpt.step(subtitle=f'Finishing up')
 
-    exit()
+
+def log_images(config, path, eval_model, label, layer_num, final_imgs, idx_to_class):
     # Logging of final images
-    if config.logging:
-        num_classes = 10
-        num_imgs = 8
+    num_imgs = 4
+    eval_model.eval()
 
-        # Sample final images from the first and last classes
-        label_subset = set(
-            list(set(targets.tolist()))[:int(num_classes / 2)] +
-            list(set(targets.tolist()))[-int(num_classes / 2):])
-        log_imgs = []
-        log_targets = []
-        log_predictions = []
-        log_max_confidences = []
-        log_target_confidences = []
+    # Log images
+    for layer in range(layer_num):
+        imgs_original = final_imgs[layer][:num_imgs]
+        log_imgs = create_image(
+            imgs_original, crop_size=config.attack_center_crop, resize=config.attack_resize)
+        log_targets = torch.tensor([label for _ in range(num_imgs)])
+        output = eval_model(log_imgs)
+        log_predictions = torch.argmax(output, dim=1)
+        confidences = output.softmax(1)
+        log_target_confidences = torch.gather(confidences, 1, log_targets.unsqueeze(1))
+        log_max_confidences = torch.max(confidences, dim=1)[0]
 
-        # Log images with smallest feature distance
-        for label in label_subset:
-            mask = torch.where(final_targets == label, True, False)
-            imgs_masked = final_imgs[best_layer][mask][:num_imgs]
-            imgs = create_image(
-                imgs_masked, crop_size=config.attack_center_crop, resize=config.attack_resize)
-            log_imgs.append(imgs)
-            log_targets += [label for _ in range(num_imgs)]
-            log_predictions.append(torch.tensor(
-                best_layer_result[2])[mask][:num_imgs])
-            log_max_confidences.append(
-                torch.tensor(best_layer_result[-3])[mask][:num_imgs])
-            log_target_confidences.append(
-                torch.tensor(best_layer_result[-4])[mask][:num_imgs])
-
-        log_imgs = torch.cat(log_imgs, dim=0)
-        log_predictions = torch.cat(log_predictions, dim=0)
-        log_max_confidences = torch.cat(log_max_confidences, dim=0)
-        log_target_confidences = torch.cat(log_target_confidences, dim=0)
-
-        # 记录最终的图片结果
-        log_final_images(log_imgs, log_predictions, log_max_confidences,
-                         log_target_confidences, idx_to_class)
-
-        # Find closest training samples to final results: 为最终结果匹配最近的训练样本
-        log_nearest_neighbors(log_imgs,
-                              log_targets,
-                              evaluation_model_dist,
-                              'InceptionV3',
-                              target_dataset,
-                              img_size=299,
-                              seed=config.seed)
-
-        # Use FaceNet only for facial images: 仅对面部图片使用FaceNet模型
-        facenet = InceptionResnetV1(pretrained='vggface2')
-        facenet = torch.nn.DataParallel(facenet, device_ids=gpu_devices)
-        facenet.to(device)
-        facenet.eval()
-        if target_dataset in [
-                'facescrub', 'celeba_identities', 'celeba_attributes'
-        ]:
-            log_nearest_neighbors(log_imgs,
-                                  log_targets,
-                                  facenet,
-                                  'FaceNet',
-                                  target_dataset,
-                                  img_size=160,
-                                  seed=config.seed)
-        # 最终记录
-        # Final logging
-        final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1,
-                            acc_top5, avg_dist_facenet, avg_dist_inception,
-                            fid_score, precision, recall, density, coverage)
+        img_path = os.path.join(path, label, f'layer{layer}')
+        Path(f"{img_path}").mkdir(parents=True, exist_ok=True)
+        for i in range(num_imgs):
+            caption=f'pred{idx_to_class[log_predictions[i].item()]}_max{log_max_confidences[i]:.2f}_target{log_target_confidences[i]:.2f}'
+            print(log_images[i])
+            save_image(log_images[i], caption, normalized=True)
 
 
 def create_parser():
@@ -555,112 +513,9 @@ def write_precision_list(filename, precision_list):
     return filename
 
 
-def log_attack_progress(loss,
-                        target_loss,
-                        discriminator_loss,
-                        discriminator_weight,
-                        mean_conf,
-                        lr,
-                        imgs=None,
-                        captions=None):
-    if imgs is not None:
-        imgs = [
-            wandb.Image(img.permute(1, 2, 0).numpy(), caption=caption)
-            for img, caption in zip(imgs, captions)
-        ]
-        wandb.log({
-            'total_loss': loss,
-            'target_loss': target_loss,
-            'discriminator_loss': discriminator_loss,
-            'discriminator_weight': discriminator_weight,
-            'mean_conf': mean_conf,
-            'learning_rate': lr,
-            'samples': imgs
-        })
-    else:
-        wandb.log({
-            'total_loss': loss,
-            'target_loss': target_loss,
-            'discriminator_loss': discriminator_loss,
-            'discriminator_weight': discriminator_weight,
-            'mean_conf': mean_conf,
-            'learning_rate': lr
-        })
-
-
 def save_dict_to_yaml(dict_value: dict, save_path: str):
     with open(save_path, 'w') as file:
         file.write(yaml.dump(dict_value, allow_unicode=True))
-
-
-def intermediate_wandb_logging(optimizer, targets, confidences, loss,
-                               target_loss, discriminator_loss,
-                               discriminator_weight, mean_conf, imgs, idx2cls):
-    lr = optimizer.param_groups[0]['lr']
-    target_classes = [idx2cls[idx.item()] for idx in targets.cpu()]
-    conf_list = [conf.item() for conf in confidences]
-    if imgs is not None:
-        img_captions = [
-            f'{target} ({conf:.4f})'
-            for target, conf in zip(target_classes, conf_list)
-        ]
-        log_attack_progress(loss,
-                            target_loss,
-                            discriminator_loss,
-                            discriminator_weight,
-                            mean_conf,
-                            lr,
-                            imgs,
-                            captions=img_captions)
-    else:
-        log_attack_progress(loss, target_loss, discriminator_loss,
-                            discriminator_weight, mean_conf, lr)
-
-
-def log_nearest_neighbors(imgs, targets, eval_model, model_name, dataset,
-                          img_size, seed):
-    # Find closest training samples to final results
-    evaluater = DistanceEvaluation(eval_model, None, img_size, None, dataset,
-                                   seed)
-    closest_samples, distances = evaluater.find_closest_training_sample(
-        imgs, targets)
-    closest_samples = [
-        wandb.Image(img.permute(1, 2, 0).cpu().numpy(),
-                    caption=f'distance={d:.4f}')
-        for img, d in zip(closest_samples, distances)
-    ]
-    wandb.log({f'closest_samples {model_name}': closest_samples})
-
-
-def log_final_images(imgs, predictions, max_confidences, target_confidences,
-                     idx2cls):
-    wand_imgs = [
-        wandb.Image(
-            img.permute(1, 2, 0).numpy(),
-            caption=f'pred={idx2cls[pred.item()]} ({max_conf:.2f}), target_conf={target_conf:.2f}'
-        ) for img, pred, max_conf, target_conf in zip(
-            imgs.cpu(), predictions, max_confidences, target_confidences)
-    ]
-    wandb.log({'final_images': wand_imgs})
-
-
-def final_wandb_logging(avg_correct_conf, avg_total_conf, acc_top1, acc_top5,
-                        avg_dist_facenet, avg_dist_eval, fid_score, precision,
-                        recall, density, coverage):
-    wandb.save('attacks/gradient_based.py', policy='now')
-    wandb.run.summary['correct_avg_conf'] = avg_correct_conf
-    wandb.run.summary['total_avg_conf'] = avg_total_conf
-    wandb.run.summary['evaluation_acc@1'] = acc_top1
-    wandb.run.summary['evaluation_acc@5'] = acc_top5
-    wandb.run.summary['avg_dist_facenet'] = avg_dist_facenet
-    wandb.run.summary['avg_dist_evaluation'] = avg_dist_eval
-    wandb.run.summary['fid_score'] = fid_score
-    wandb.run.summary['precision'] = precision
-    wandb.run.summary['recall'] = recall
-    wandb.run.summary['density'] = density
-    wandb.run.summary['coverage'] = coverage
-
-    wandb.finish()
 
 
 if __name__ == '__main__':

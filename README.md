@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ```
 
 ## Datasets
-Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we support [FaceScrub](http://vintage.winklerbros.net/facescrub.html), [CelebA](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) and [Stanford Dogs](http://vision.stanford.edu/aditya86/ImageNetDogs/) as datasets to train the target models. Please place all datasets in the folder ```data``` with the following structure kept:
+Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we support [FaceScrub](http://vintage.winklerbros.net/facescrub.html), [CelebA](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) and [Stanford Dogs](http://vision.stanford.edu/aditya86/ImageNetDogs/) as datasets to train the target models. Please place all the datasets in the folder ```data``` with the following structure kept:
 
     .
     ├── data       
@@ -74,3 +74,8 @@ NVIDIA provides the following pre-trained models: ```ffhq.pkl, metfaces.pkl, afh
 Notably, it's necessary to extract the parameters from the ```.pkl``` model weights using the ```pkl2pth.py``` file, which outputs a ```.pth``` file. This is because the ```.pkl``` contains the whole structure of StyleGAN2, while we customize the StyleGAN2 structure to support intermediate features optimization, thus merely requiring the parameters. Also, you may directly download the extracted parameters from our released [link](https://github.com/final-solution/IF-GMI/releases).
 
 ## Quickly Start
+We prepare an example configuration file in the ```configs/example.yaml```. To perform our attacks, run the following command with the specified configuration file:
+```sh
+python intermediate_attack.py -c=configs/example.yaml
+```
+We also provide configurations utilized in our main experiments, which are placed under the ```configs/``` directory. All the attack results will be stored at the ```result_path``` specified in the configuration ```xxx.yaml```.

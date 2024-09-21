@@ -50,7 +50,6 @@ attack:
       weight_decay: 0
       betas: [0.1, 0.1]
 
-# 中间层相关
 intermediate:
   start: 0
   end: 8

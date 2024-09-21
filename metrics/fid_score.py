@@ -45,7 +45,7 @@ class FID_Score:
         self.dataset_1 = dataset_1
         self.dataset_2 = dataset_2
     
-    # 获取对应层下的fid
+    # get fid score for certain layer
     def get_fid(self, layer):
         pred_arr_gt = np.concatenate(self.pred_arr_gt, axis=0)
         mu1 = np.mean(pred_arr_gt, axis=0)
@@ -63,7 +63,7 @@ class FID_Score:
         self.compute_statistics(self.dataset_1, rtpt)
         self.compute_statistics(self.dataset_2, layer, rtpt, fake=True)
 
-    # 计算FID
+    # calculate fid
     def compute_statistics(self, dataset, layer=None, rtpt=None, fake=False):
         self.inception_model.eval()
         dataloader = torch.utils.data.DataLoader(dataset,
@@ -77,7 +77,7 @@ class FID_Score:
         max_iter = int(len(dataset) / self.batch_size)
         for step, (x, y) in enumerate(dataloader):
             with torch.no_grad():
-                # 表示该数据集是重建图像数据集
+                # inversion results
                 if fake:
                     x = create_image(x, crop_size=self.crop_size, resize=299)
                 x = x.to(self.device)
@@ -93,6 +93,3 @@ class FID_Score:
             self.pred_arr_fake[layer].append(pred_arr)
         else:
             self.pred_arr_gt.append(pred_arr)
-        # mu = np.mean(pred_arr, axis=0)
-        # sigma = np.cov(pred_arr, rowvar=False)
-        # return mu, sigma

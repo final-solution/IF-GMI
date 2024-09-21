@@ -34,7 +34,6 @@ class ClassificationAccuracy():
         dataset = TensorDataset(images, targets)
         max_iter = math.ceil(len(dataset) / batch_size)
 
-        # 从图片开始计算
         with torch.no_grad():
             for step, (imgs, target_batch) in enumerate(
                     DataLoader(dataset, batch_size=batch_size, shuffle=False)):

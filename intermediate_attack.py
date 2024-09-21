@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
     # Set devices
     torch.set_num_threads(24)
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3,4'
+    os.environ["CUDA_VISIBLE_DEVICES"] = '4,5,6'
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     gpu_devices = [i for i in range(torch.cuda.device_count())]
 

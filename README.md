@@ -1,4 +1,9 @@
 # A Closer Look at GAN Priors: Exploiting Intermediate Features for Enhanced Model Inversion Attacks
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+![Python 3.10](https://img.shields.io/badge/python-3.10-DodgerBlue.svg?style=plastic)
+![Pytorch 2.0.0](https://img.shields.io/badge/pytorch-2.0.0-DodgerBlue.svg?style=plastic)
+
+
 [ECCV-2024 Oral] A PyTorch official implementation for [A Closer Look at GAN Priors: Exploiting Intermediate Features for Enhanced Model Inversion Attacks](https://arxiv.org/abs/2407.13863), accepted to ECCV-2024.
 
 [Yixiang Qiu*](https://scholar.google.cz/citations?hl=zh-CN&user=kxotrxgAAAAJ),

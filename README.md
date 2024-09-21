@@ -18,3 +18,13 @@
 ## Visual Results
 
 ![results](./images/visual.jpeg)
+
+## Environments
+The essential environment for launching attacks can be built up with the following commands:
+```sh
+git clone https://github.com/final-solution/IF-GMI.git
+conda create -n ifgmi python=3.10
+conda activate ifgmi
+pip install -r requirements.txt
+```
+

@@ -9,8 +9,6 @@ import yaml
 from attacks.initial_selection import find_initial_w
 from models.classifier import Classifier
 
-import wandb
-
 
 class AttackConfigParser:
 
@@ -52,12 +50,7 @@ class AttackConfigParser:
         return model
 
     def get_target_dataset(self):
-        try:
-            api = wandb.Api(timeout=60)
-            run = api.run(self._config['wandb_target_run'])
-            return run.config['Dataset'].strip().lower()
-        except:
-            return self._config['dataset']
+        return self._config['dataset']
 
     def create_evaluation_model(self):
         if 'evaluation_model' in self._config:

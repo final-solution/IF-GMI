@@ -49,9 +49,9 @@ def log_images(config, path, eval_model, label, layer_num, final_imgs, idx_to_cl
         img_path = os.path.join(path, str(label), f'layer{layer}')
         Path(f"{img_path}").mkdir(parents=True, exist_ok=True)
         for i in range(num_imgs):
-            caption=f'pred{idx_to_class[log_predictions[i].item()]}_max{log_max_confidences[i].item():.2f}_target{log_target_confidences[i].item():.2f}.png'
-            print(log_imgs[i])
-            save_image(log_imgs[i], caption, normalized=True)
+            title = f'pred{idx_to_class[log_predictions[i].item()]}_max{log_max_confidences[i].item():.2f}_target{log_target_confidences[i].item():.2f}.png'
+            caption=os.path.join(img_path, title)
+            save_image(log_imgs[i], caption, normalize=True)
 
 
 def create_parser():

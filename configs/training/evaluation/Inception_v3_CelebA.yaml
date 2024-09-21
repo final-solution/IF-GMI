@@ -1,6 +1,6 @@
 ---
 seed: 42
-
+logging: true
 model:
   architecture: inceptionv3
   num_classes: 1000
@@ -41,15 +41,8 @@ training:
   num_epochs: 100
   batch_size: 128
   dataloader_num_workers: 8
-  save_path: results/
+  save_path: training_results/
 
 rtpt:
   experiment_name: InceptionV3_CelebA
   name_initials: XX
-
-wandb:
-  enable_logging: true
-  args:
-    project: model_inversion_evaluation
-    name: Inception_V3_CelebA
-    save_code: true

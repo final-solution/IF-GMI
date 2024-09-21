@@ -7,14 +7,12 @@ import numpy as np
 import timm
 import torch
 import torch.nn as nn
-import wandb
 from metrics.accuracy import Accuracy
 from torch.utils.data import DataLoader
 from torchvision.models import densenet, inception, resnet
 from torchvision.transforms import (ColorJitter, RandomCrop,
                                     RandomHorizontalFlip, Resize)
 from tqdm import tqdm
-
 from models.base_model import BaseModel
 
 import sys
@@ -37,7 +35,6 @@ class Classifier(BaseModel):
         self.model = self._build_model(architecture, pretrained)
         self.model.to(self.device)
         self.architecture = architecture
-
         self.to(self.device)
 
     def _build_model(self, architecture, pretrained):
@@ -201,14 +198,14 @@ class Classifier(BaseModel):
             metric=Accuracy,
             rtpt=None,
             config=None,
+            logging=None,
             batch_size=64,
             num_epochs=30,
             dataloader_num_workers=8,
-            enable_logging=False,
-            wandb_init_args=None,
             save_base_path="",
             config_file=None):
-
+        from utils.logger import save_dict_to_yaml,Tee
+        tee = Tee(f'{save_base_path}/{config.experiment_name}.log', 'w')
         trainloader = DataLoader(training_data,
                                  batch_size=batch_size,
                                  shuffle=True,
@@ -219,51 +216,8 @@ class Classifier(BaseModel):
             print('Please use RTPT (Remaining Time to Process Title)')
 
         # Initialize WandB logging
-        if enable_logging:
-
-            if wandb_init_args is None:
-                wandb_init_args = dict()
-
-            wandb_config = {
-                "Dataset": config.dataset['type'],
-                'Epochs': num_epochs,
-                'Batch_size': batch_size,
-                'Seed': config.seed,
-                'Initial_lr': optimizer.param_groups[0]['lr'],
-                'Architecture': self.architecture,
-                'Pretrained': self.pretrained,
-                'Optimizer': optimizer,
-                'Trainingset_size': len(training_data),
-                'num_classes': self.num_classes,
-                'Total_parameters':
-                self.count_parameters(only_trainable=False),
-                'Trainable_parameters':
-                self.count_parameters(only_trainable=True)
-            }
-
-            for t in training_data.transform.transforms:
-                if type(t) is Resize:
-                    wandb_config['Resize'] = t.size
-                elif type(t) is RandomCrop:
-                    wandb_config['RandomCrop'] = t.size
-                elif type(t) is ColorJitter:
-                    wandb_config['BrightnessJitter'] = t.brightness
-                    wandb_config['ContrastJitter'] = t.contrast
-                    wandb_config['SaturationJitter'] = t.saturation
-                    wandb_config['HueJitter'] = t.hue
-                elif type(t) is RandomHorizontalFlip:
-                    wandb_config['HorizontalFlip'] = t.p
-
-            if validation_data:
-                wandb_config['Validationset_size'] = len(validation_data)
-
-            if test_data:
-                wandb_config['Testset_size'] = len(test_data)
-
-            wandb.init(**wandb_init_args, config=wandb_config, reinit=True)
-            wandb.watch(self.model)
-            if config_file:
-                wandb.save(config_file)
+        if logging and config_file:
+            save_dict_to_yaml(config_file, f'{save_base_path}/{config.experiment_name}.yaml')
 
         # Training cycle
         best_model_values = {
@@ -325,17 +279,8 @@ class Classifier(BaseModel):
                 f'\t Epoch main loss: {running_main_loss / len(training_data):.4f}',
                 f'\t Aux loss: {running_aux_loss / len(training_data):.4f}')
 
-            if enable_logging:
-                wandb.log(
-                    {
-                        f'Training {metric_train.name}':
-                        metric_train.compute_metric(),
-                        'Training Loss':
-                        running_total_loss / len(training_data),
-                        'Learning Rate':
-                        optimizer.param_groups[0]['lr'],
-                    },
-                    step=epoch)
+            if logging:
+                print(f'Learning Rate:{optimizer.param_groups[0]["lr"]}')
 
             # Validation
             if validation_data:
@@ -366,13 +311,8 @@ class Classifier(BaseModel):
                         'training_loss'] = running_total_loss / len(
                             trainloader)
 
-                if enable_logging:
-                    wandb.log(
-                        {
-                            f'Validation {metric_train.name}': val_metric,
-                            'Validation Loss': val_loss,
-                        },
-                        step=epoch)
+                if logging:
+                    print(f'Validation {metric_train.name}: {val_metric}, Validation Loss: {val_loss}')
             else:
                 best_model_values['validation_metric'] = None
                 best_model_values['validation_loss'] = None
@@ -440,25 +380,6 @@ class Classifier(BaseModel):
             print(
                 f'Final Test {metric_train.name}: {test_metric:.2%} \t Test Loss: {test_loss:.4f} \n'
             )
-
-        if enable_logging:
-            wandb.save(model_path)
-            wandb.run.summary[
-                f'Validation {metric_train.name}'] = best_model_values[
-                    'validation_metric']
-            wandb.run.summary['Validation Loss'] = best_model_values[
-                'validation_loss']
-            wandb.run.summary[
-                f'Training {metric_train.name}'] = best_model_values[
-                    'training_metric']
-            wandb.run.summary['Training Loss'] = best_model_values[
-                'training_loss']
-            wandb.run.summary[f'Test {metric_train.name}'] = test_metric
-            wandb.run.summary['Test Loss'] = test_loss
-
-            wandb.config.update({'model_path': model_path})
-            wandb.config.update({'config_path': config_file})
-            wandb.finish()
 
     def evaluate(self,
                  evaluation_data,

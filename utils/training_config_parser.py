@@ -224,5 +224,5 @@ class TrainingConfigParser:
         return self._config['seed']
 
     @property
-    def wandb(self):
-        return self._config['wandb']
+    def logging(self):
+        return self._config['logging']

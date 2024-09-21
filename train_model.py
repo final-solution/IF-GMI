@@ -9,7 +9,7 @@ from metrics.accuracy import Accuracy
 from utils.training_config_parser import TrainingConfigParser
 
 
-def main():
+if __name__ == '__main__':
     # Define and parse arguments
     parser = argparse.ArgumentParser(
         description='Training a target classifier')
@@ -73,11 +73,6 @@ def main():
         batch_size=config.training['batch_size'],
         num_epochs=config.training['num_epochs'],
         dataloader_num_workers=config.training['dataloader_num_workers'],
-        enable_logging=config.wandb['enable_logging'],
-        wandb_init_args=config.wandb['args'],
+        logging=config.wandb['logging'],
         save_base_path=save_path,
         config_file=args.config)
-
-
-if __name__ == '__main__':
-    main()

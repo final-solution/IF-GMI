@@ -1,7 +1,5 @@
-from copy import copy
 from typing import List
 
-import numpy as np
 import torch
 import torch.optim as optim
 import torchvision.transforms as T
@@ -26,28 +24,12 @@ class AttackConfigParser:
             model = Classifier(num_classes=config['num_classes'],
                                architecture=config['architecture'])
             model.load_state_dict(torch.load(config['weights']))
-            model.wandb_name = None
         else:
             raise RuntimeError('No target model stated in the config file.')
 
         model.eval()
         self.model = model
         return model, config['architecture']
-
-    def create_augmented_models(self, index):
-        if 'augmented_models' in self._config:
-            config = self._config['augmented_models']
-            model = Classifier(num_classes=config['num_classes'],
-                               architecture=config['architecture'][index])
-            model.load_state_dict(torch.load(
-                config['weights'][index])['state_dict'])
-            model.wandb_name = None
-        else:
-            raise RuntimeError('No augmented model stated in the config file.')
-
-        model.eval()
-        self.model = model
-        return model
 
     def get_target_dataset(self):
         return self._config['dataset']

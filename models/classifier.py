@@ -215,7 +215,6 @@ class Classifier(BaseModel):
         if rtpt is None:
             print('Please use RTPT (Remaining Time to Process Title)')
 
-        # Initialize WandB logging
         if logging and config_file:
             save_dict_to_yaml(config_file, f'{save_base_path}/{config.experiment_name}.yaml')
 

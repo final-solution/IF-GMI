@@ -43,43 +43,13 @@ def save_images(imgs: torch.tensor, folder, filename, center_crop=800):
         path = os.path.join(folder, f'{filename}_{i}.png')
         torchvision.utils.save_image(img, path)
 
-# 对图像进行变换
+# transform images
 def create_image(imgs, crop_size=None, resize=None):
     if crop_size is not None:
         imgs = F.center_crop(imgs, (crop_size, crop_size))
     if resize is not None:
         imgs = F.resize(imgs, resize, antialias=True)
     return imgs
-
-# def create_image(w,
-#                  generator,
-#                  crop_size=None,
-#                  resize=None,
-#                  batch_size=20,
-#                  device='cuda'):
-#     with torch.no_grad():
-#         if w.shape[1] == 1:
-#             w_expanded = torch.repeat_interleave(w,
-#                                                  repeats=generator.num_ws,
-#                                                  dim=1)
-#         else:
-#             w_expanded = w
-
-#         w_expanded = w_expanded.to(device)
-#         imgs = []
-#         for i in range(math.ceil(w_expanded.shape[0] / batch_size)):
-#             w_batch = w_expanded[i * batch_size:(i + 1) * batch_size]
-#             imgs_generated = generator(w_batch,
-#                                        noise_mode='const',
-#                                        force_fp32=True)
-#             imgs.append(imgs_generated.cpu())
-
-#         imgs = torch.cat(imgs, dim=0)
-#         if crop_size is not None:
-#             imgs = F.center_crop(imgs, (crop_size, crop_size))
-#         if resize is not None:
-#             imgs = F.resize(imgs, resize, antialias=True)
-#         return imgs
 
 
 def load_generator(filepath):

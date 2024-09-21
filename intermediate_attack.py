@@ -427,7 +427,7 @@ if __name__ == '__main__':
         # save time
         end_time = time.perf_counter()
         with open(f'{result_path}/time.txt', 'w') as file:
-            file.write(f'running time: {end_time-start_time} seconds')
+            file.write(f'running time: {end_time-start_time:.4f} seconds')
 
     if rtpt:
         rtpt.step(subtitle=f'Finishing up')

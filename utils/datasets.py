@@ -6,8 +6,6 @@ import torch.nn as nn
 import torchvision.transforms as T
 from torch.utils import data
 from torch.utils.data import random_split
-from torch.utils.data.dataloader import DataLoader
-from torch.utils.data.dataset import Dataset
 
 from datasets.celeba import CelebA1000
 from datasets.facescrub import FaceScrub

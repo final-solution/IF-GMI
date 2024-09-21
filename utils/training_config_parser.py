@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from typing import List
 
 import numpy as np

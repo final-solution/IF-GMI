@@ -79,3 +79,24 @@ We prepare an example configuration file in the ```configs/example.yaml```. To p
 python intermediate_attack.py -c=configs/example.yaml
 ```
 We also provide configurations utilized in our main experiments, which are placed under the ```configs/``` directory. All the attack results will be stored at the ```result_path``` specified in the configuration ```xxx.yaml```.
+
+## Citation
+**If you are interested in our work, please kindly cite our paper:**
+```
+@article{qiu2024closer,
+  title={A Closer Look at GAN Priors: Exploiting Intermediate Features for Enhanced Model Inversion Attacks},
+  author={Qiu, Yixiang and Fang, Hao and Yu, Hongyao and Chen, Bin and Qiu, MeiKang and Xia, Shu-Tao},
+  journal={arXiv preprint arXiv:2407.13863},
+  year={2024}
+}
+
+@article{fang2024privacy,
+  title={Privacy leakage on dnns: A survey of model inversion attacks and defenses},
+  author={Fang, Hao and Qiu, Yixiang and Yu, Hongyao and Yu, Wenbo and Kong, Jiawei and Chong, Baoli and Chen, Bin and Wang, Xuan and Xia, Shu-Tao},
+  journal={arXiv preprint arXiv:2402.04013},
+  year={2024}
+}
+```
+
+## Acknowledgement
+Our code is based on [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks). For StyleGAN2, we adapt this [Pytorch implementation](https://github.com/NVlabs/stylegan2-ada-pytorch). We express sincere gratitude for the authors who provide high-quality codes for datasets, metrics and trained models. It's their great devotion that contributes to the prosperous community of **MIA**!

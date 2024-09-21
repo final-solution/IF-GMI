@@ -60,3 +60,17 @@ Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we supp
 For CelebA, please refer to the [HD CelebA Cropper](https://github.com/LynnHo/HD-CelebA-Cropper). We cropped the images with a face factor of 0.65 and resized them to size 224x224 with bicubic interpolation. The other parameters were left at default. Note that we only use the 1,000 identities with the most number of samples out of 10,177 available identities.
 
 ## Target Models
+The target models utilized in our paper are identical to the models provided in [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks/releases). Download the target models and place them in the folder ```pretrained```. 
+
+Additionally, our code retains the training configuration file and training code. Therefore, you may follow the same instructions in the [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks) to train your own models.
+
+## StyleGAN2
+[StyleGAN2](https://github.com/NVlabs/stylegan2-ada-pytorch) weights require downloaded manually  as following :
+```sh
+git clone https://github.com/NVlabs/stylegan2-ada-pytorch.git
+rm -r --force stylegan2-ada-pytorch/.git/
+rm -r --force stylegan2-ada-pytorch/.github/
+rm --force stylegan2-ada-pytorch/.gitignore
+```
+
+Notably, the original StyleGAN2 should be adjusted to support intermediate features optimization.

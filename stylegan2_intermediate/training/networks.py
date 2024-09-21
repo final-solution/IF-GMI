@@ -516,25 +516,22 @@ class SynthesisNetwork(torch.nn.Module):
             img_resolution - 1) == 0
         super().__init__()
 
-        # 中间层相关
+        # control intermediate layers
         self.start_layer = 0
         self.end_layer = 8
 
-        # w向量及图像相关
         self.w_dim = w_dim
         self.img_resolution = img_resolution
         self.img_resolution_log2 = int(np.log2(img_resolution))  # 10
         self.img_channels = img_channels  # 3
 
-        # 各层分辨率（2~10）
         self.block_resolutions = [
             2 ** i for i in range(2, self.img_resolution_log2 + 1)]
         channels_dict = {res: min(channel_base // res, channel_max)
                          for res in self.block_resolutions}
         fp16_resolution = max(
             2 ** (self.img_resolution_log2 + 1 - num_fp16_res), 8)
-
-        # 设置中间的synthesis块，共9个
+        
         self.num_ws = 0
         for res in self.block_resolutions:
             in_channels = channels_dict[res // 2] if res > 4 else 0
@@ -549,7 +546,6 @@ class SynthesisNetwork(torch.nn.Module):
             setattr(self, f'b{res}', block)
 
     def forward(self, ws, layer_in=None, **block_kwargs):
-        # 先取出各个synthesis块
         block_ws = []
         with torch.autograd.profiler.record_function('split_ws'):
             misc.assert_shape(ws, [None, self.num_ws, self.w_dim])
@@ -561,7 +557,7 @@ class SynthesisNetwork(torch.nn.Module):
                     ws.narrow(1, w_idx, block.num_conv + block.num_torgb))
                 w_idx += block.num_conv
 
-        # 开始逐块合成图像，添加了中间层操作
+        # synthesize images with intermediate layers
         img = None
         current_layer = 0
         for res, cur_ws in zip(self.block_resolutions, block_ws):
@@ -577,7 +573,7 @@ class SynthesisNetwork(torch.nn.Module):
             current_layer += 1
         return img
 
-    # 设置中间层参数
+    # control intermediate layers
     def set_layer(self, start, end):
         self.start_layer = start
         self.end_layer = end

@@ -60,12 +60,12 @@ Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we supp
 For CelebA, please refer to the [HD CelebA Cropper](https://github.com/LynnHo/HD-CelebA-Cropper). We cropped the images with a face factor of 0.65 and resized them to size 224x224 with bicubic interpolation. The other parameters were left at default. Note that we only use the 1,000 identities with the most number of samples out of 10,177 available identities.
 
 ## Target Models
-The target models utilized in our paper are identical to the models provided in [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks/releases). Download the target models and place them in the folder ```pretrained```. To evaluate on the ```ResNeSt``` models, you might clone the related code from [ResNeSt](https://github.com/zhanghang1989/ResNeSt) and place it in the root directory ```IF-GMI/```.
+The target models utilized in our paper are identical to the models provided in [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks/releases). Download the target models and place them in the folder ```pretrained```. To evaluate on the ```ResNeSt``` models, you might clone the related code from [ResNeSt](https://github.com/zhanghang1989/ResNeSt) and place it in the root folder ```IF-GMI/```.
 
 Additionally, our code retains the training configuration file and training code. Therefore, you may follow the same instructions in the [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks) to train your own models.
 
 ## StyleGAN2
-The code for StyleGAN2 structure is built-in and adjusted to support intermediate features optimization in the directory ```stylegan2_intermediate```. However, the weights for pre-trained StyleGAN2 require downloaded manually. The pre-trained weights can be copied from the official repository [StyleGAN2](https://github.com/NVlabs/stylegan2-ada-pytorch) or downloaded manually as follows:
+The code for StyleGAN2 structure is built-in and adjusted to support intermediate features optimization in the folder ```stylegan2_intermediate```. However, the weights for pre-trained StyleGAN2 require downloaded manually. The pre-trained weights can be copied from the official repository [StyleGAN2](https://github.com/NVlabs/stylegan2-ada-pytorch) or downloaded manually as follows:
 ```sh
 wget https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/ffhq.pkl -P stylegan2_intermediate/
 ```
@@ -78,7 +78,7 @@ We prepare an example configuration file in the ```configs/example.yaml```. To p
 ```sh
 python intermediate_attack.py -c=configs/example.yaml
 ```
-We also provide configurations utilized in our main experiments, which are placed under the ```configs/``` directory. All the attack results will be stored at the ```result_path``` specified in the configuration ```xxx.yaml```.
+We also provide configurations utilized in our main experiments, which are placed under the ```configs/``` folder. All the attack results will be stored at the ```result_path``` specified in the configuration ```xxx.yaml```.
 
 ## Citation
 **If you are interested in our work, please kindly cite our paper:**

@@ -31,7 +31,7 @@ pip install -r requirements.txt
 ## Datasets
 Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we support [FaceScrub](http://vintage.winklerbros.net/facescrub.html), [CelebA](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) and [Stanford Dogs](http://vision.stanford.edu/aditya86/ImageNetDogs/) as datasets to train the target models. Please place all datasets in the folder ```data``` with the following structure kept:
 
- .
+    .
     ├── data       
         ├── celeba
             ├── img_align_celeba
@@ -59,3 +59,4 @@ Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we supp
 
 For CelebA, please refer to the [HD CelebA Cropper](https://github.com/LynnHo/HD-CelebA-Cropper). We cropped the images with a face factor of 0.65 and resized them to size 224x224 with bicubic interpolation. The other parameters were left at default. Note that we only use the 1,000 identities with the most number of samples out of 10,177 available identities.
 
+## Target Models

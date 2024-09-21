@@ -28,3 +28,34 @@ conda activate ifgmi
 pip install -r requirements.txt
 ```
 
+## Datasets
+Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we support [FaceScrub](http://vintage.winklerbros.net/facescrub.html), [CelebA](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) and [Stanford Dogs](http://vision.stanford.edu/aditya86/ImageNetDogs/) as datasets to train the target models. Please place all datasets in the folder ```data``` with the following structure kept:
+
+ .
+    ├── data       
+        ├── celeba
+            ├── img_align_celeba
+            ├── identity_CelebA.txt
+            ├── list_attr_celeba.txt
+            ├── list_bbox_celeba.txt
+            ├── list_eval_partition.txt
+            ├── list_landmarks_align_celeba.txt
+            └── list_landmarks_celeba.txt
+        ├── facescrub
+            ├── actors
+                ├── faces
+                └── images
+            └── actresses
+                ├── faces
+                └── images
+        ├── stanford_dogs
+            ├── Annotation
+            ├── Images
+            ├── file_list.mat
+            ├── test_data.mat
+            ├── test_list.mat
+            ├── train_data.mat
+            └── train_list.mat
+
+For CelebA, please refer to the [HD CelebA Cropper](https://github.com/LynnHo/HD-CelebA-Cropper). We cropped the images with a face factor of 0.65 and resized them to size 224x224 with bicubic interpolation. The other parameters were left at default. Note that we only use the 1,000 identities with the most number of samples out of 10,177 available identities.
+

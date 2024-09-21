@@ -16,7 +16,7 @@ from tqdm import tqdm
 from models.base_model import BaseModel
 
 import sys
-# from ResNeSt.resnest.torch import resnest50, resnest101, resnest200, resnest269
+from ResNeSt.resnest.torch import resnest50, resnest101, resnest200, resnest269
 
 class Classifier(BaseModel):
 
@@ -88,29 +88,29 @@ class Classifier(BaseModel):
         elif 'resnest' in architecture:
             # torch.hub.list('zhanghang1989/ResNeSt', force_reload=True)
             print(f'start load {architecture}')
-            # if architecture == 'resnest50':
-            #     # model = torch.hub.load('zhanghang1989/ResNeSt',
-            #     #                        'resnest50',
-            #     #                        pretrained=True)
-            #     model = resnest50()
-            # elif architecture == 'resnest101':
-            #     # model = torch.hub.load('zhanghang1989/ResNeSt',
-            #     #                        'resnest101',
-            #     #                        pretrained=True)
-            #     model = resnest101()
-            # elif architecture == 'resnest200':
-            #     # model = torch.hub.load('zhanghang1989/ResNeSt',
-            #     #                        'resnest200',
-            #     #                        pretrained=True)
-            #     model = resnest200()
-            # elif architecture == 'resnest269':
-            #     # model = torch.hub.load('zhanghang1989/ResNeSt',
-            #     #                        'resnest269',
-            #     #                        pretrained=True)
-            #     model = resnest269()
-            # else:
-            #     raise RuntimeError(
-            #         f'No ResNeSt with the name {architecture} available')
+            if architecture == 'resnest50':
+                # model = torch.hub.load('zhanghang1989/ResNeSt',
+                #                        'resnest50',
+                #                        pretrained=True)
+                model = resnest50()
+            elif architecture == 'resnest101':
+                # model = torch.hub.load('zhanghang1989/ResNeSt',
+                #                        'resnest101',
+                #                        pretrained=True)
+                model = resnest101()
+            elif architecture == 'resnest200':
+                # model = torch.hub.load('zhanghang1989/ResNeSt',
+                #                        'resnest200',
+                #                        pretrained=True)
+                model = resnest200()
+            elif architecture == 'resnest269':
+                # model = torch.hub.load('zhanghang1989/ResNeSt',
+                #                        'resnest269',
+                #                        pretrained=True)
+                model = resnest269()
+            else:
+                raise RuntimeError(
+                    f'No ResNeSt with the name {architecture} available')
 
             if self.num_classes != model.fc.out_features:
                 # exchange the last layer to match the desired numbers of classes

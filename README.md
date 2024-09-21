@@ -60,17 +60,17 @@ Following [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks), we supp
 For CelebA, please refer to the [HD CelebA Cropper](https://github.com/LynnHo/HD-CelebA-Cropper). We cropped the images with a face factor of 0.65 and resized them to size 224x224 with bicubic interpolation. The other parameters were left at default. Note that we only use the 1,000 identities with the most number of samples out of 10,177 available identities.
 
 ## Target Models
-The target models utilized in our paper are identical to the models provided in [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks/releases). Download the target models and place them in the folder ```pretrained```. 
+The target models utilized in our paper are identical to the models provided in [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks/releases). Download the target models and place them in the folder ```pretrained```. To evaluate on the ```ResNeSt``` models, you might clone the related code from [ResNeSt](https://github.com/zhanghang1989/ResNeSt) and place it in the root directory ```IF-GMI/```.
 
 Additionally, our code retains the training configuration file and training code. Therefore, you may follow the same instructions in the [PPA](https://github.com/LukasStruppek/Plug-and-Play-Attacks) to train your own models.
 
 ## StyleGAN2
-[StyleGAN2](https://github.com/NVlabs/stylegan2-ada-pytorch) weights require downloaded manually  as following :
+The code for StyleGAN2 structure is built-in and adjusted to support intermediate features optimization in the directory ```stylegan2_intermediate```. However, the weights for pre-trained StyleGAN2 require downloaded manually. The pre-trained weights can be copied from the official repository [StyleGAN2](https://github.com/NVlabs/stylegan2-ada-pytorch) or downloaded manually as follows:
 ```sh
-git clone https://github.com/NVlabs/stylegan2-ada-pytorch.git
-rm -r --force stylegan2-ada-pytorch/.git/
-rm -r --force stylegan2-ada-pytorch/.github/
-rm --force stylegan2-ada-pytorch/.gitignore
+wget https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/ffhq.pkl -P stylegan2_intermediate/
 ```
+NVIDIA provides the following pre-trained models: ```ffhq.pkl, metfaces.pkl, afhqcat.pkl, afhqdog.pkl, afhqwild.pkl, cifar10.pkl, brecahad.pkl```. You may customize the link to download other pre-trained weights. 
 
-Notably, the original StyleGAN2 should be adjusted to support intermediate features optimization.
+Notably, it's necessary to extract the parameters from the ```.pkl``` model weights using the ```pkl2pth.py``` file, which outputs a ```.pth``` file. This is because the ```.pkl``` contains the whole structure of StyleGAN2, while we customize the StyleGAN2 structure to support intermediate features optimization, thus merely requiring the parameters. Also, you may directly download the extracted parameters from our released [link](https://github.com/final-solution/IF-GMI/releases).
+
+## Quickly Start

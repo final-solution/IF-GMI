@@ -8,7 +8,6 @@ import pandas as pd
 file_path = r'your_path/xxx.log'
 excel_path = file_path[:-3] + 'csv'
 
-# 创建空的DataFrame来存储数据
 data = {
     'Layer': [],
     # 'Evaluation Type': [],

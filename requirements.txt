@@ -1,13 +1,12 @@
 facenet-pytorch==2.5.2
 fvcore==0.1.5.post20211023
-wandb
 rtpt
 opencv-python
 pandas
 pytorch-fid==0.2.1
-# scikit-learn==0.24.2
 yapf
 --find-links https://download.pytorch.org/whl/torch_stable.html
+numpy==1.26.3
 torch==2.0.0+cu117
 torchvision==0.15.1+cu117
 timm==0.6.13

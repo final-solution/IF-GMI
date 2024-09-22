@@ -80,6 +80,9 @@ python intermediate_attack.py -c=configs/example.yaml
 ```
 We also provide configurations utilized in our main experiments, which are placed under the ```configs/``` folder. All the attack results will be stored at the ```result_path``` specified in the configuration ```xxx.yaml```.
 
+## Baselines
+To conveniently perform comparison and evaluation on baselines, our team has built a comprehensive toolbox for Model Inversion Attacks and Defenses. We recommend utilizing the [toolbox](https://github.com/ffhibnese/Model-Inversion-Attack-ToolBox) to reproduce the results presented in our paper and conduct other essential experiments!
+
 ## Citation
 **If you are interested in our work, please kindly cite our paper:**
 ```
